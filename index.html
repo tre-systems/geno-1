@@ -5,11 +5,25 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Geno-1</title>
     <style>
+      :root {
+        --ink-0: #03050f;
+        --ink-1: #0a1025;
+        --ink-2: #131f3a;
+        --panel-bg: rgba(8, 13, 28, 0.74);
+        --panel-border: rgba(112, 147, 220, 0.28);
+        --text-main: #e4edff;
+        --text-soft: #a6b7da;
+        --accent-hot: #ffcf78;
+        --accent-cool: #8ed6ff;
+      }
       html,
       body {
         margin: 0;
         height: 100%;
-        background: #020308;
+        background:
+          radial-gradient(130% 90% at 88% 12%, rgba(55, 91, 184, 0.2), transparent 55%),
+          radial-gradient(85% 65% at 12% 88%, rgba(252, 158, 68, 0.16), transparent 65%),
+          linear-gradient(130deg, var(--ink-0), var(--ink-1) 44%, #080d1f);
       }
       #app-canvas {
         width: 100vw;
@@ -21,59 +35,94 @@
         position: fixed;
         inset: 0;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
-        background: rgba(2, 3, 8, 0.25);
-        backdrop-filter: blur(6px) saturate(1.1);
+        background: rgba(2, 4, 10, 0.36);
+        backdrop-filter: blur(10px) saturate(1.12);
         z-index: 10;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      #start-overlay::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(40% 60% at 80% 10%, rgba(83, 131, 231, 0.24), transparent 78%),
+          radial-gradient(55% 70% at 15% 95%, rgba(246, 172, 84, 0.22), transparent 80%),
+          repeating-linear-gradient(
+            -18deg,
+            rgba(255, 255, 255, 0.015) 0px,
+            rgba(255, 255, 255, 0.015) 1px,
+            transparent 1px,
+            transparent 13px
+          );
       }
       #start-content {
+        position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
         text-align: center;
-        color: #cfe7ff;
+        color: var(--text-main);
+        width: min(92vw, 860px);
+        margin: clamp(8px, 4vh, 34px) 0;
       }
       #start-keys {
-        color: #cfe7ff;
+        position: relative;
+        color: var(--text-main);
         font:
-          13px/1.55 system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          Ubuntu,
-          Cantarell,
-          Noto Sans,
-          Arial,
+          13px/1.56 "Avenir Next",
+          "Gill Sans Nova",
+          "Trebuchet MS",
           sans-serif;
-        max-width: 760px;
-        background: rgba(10, 14, 24, 0.7);
-        padding: 16px 18px;
-        border: 1px solid rgba(80, 110, 150, 0.35);
-        border-radius: 10px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        width: 100%;
+        max-width: 820px;
+        background:
+          linear-gradient(160deg, rgba(7, 12, 30, 0.88), rgba(10, 20, 44, 0.76) 45%, rgba(21, 16, 35, 0.8)),
+          var(--panel-bg);
+        padding: 18px 20px;
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        box-shadow:
+          0 24px 48px rgba(0, 0, 0, 0.44),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
         text-align: left;
+        overflow: hidden;
+      }
+      #start-keys::after {
+        content: "";
+        position: absolute;
+        inset: -20% -25% auto auto;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(120, 174, 255, 0.28), transparent 70%);
+        filter: blur(8px);
+        pointer-events: none;
       }
       #start-keys h3 {
         margin: 0 0 8px 0;
-        font-size: 13px;
-        font-weight: 700;
-        color: #a9c6ff;
-        letter-spacing: 0.02em;
+        font-size: 12px;
+        font-weight: 760;
+        color: #bdd5ff;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
       }
       #start-keys .grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px 18px;
+        gap: 10px 18px;
       }
       #start-keys ul {
         list-style: none;
         margin: 6px 0 10px 0;
         padding: 0;
-        color: #9bb;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--text-soft);
+        font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
         font-size: 12px;
       }
       #start-keys li {
@@ -81,42 +130,84 @@
       }
       .kbd {
         display: inline-block;
-        padding: 1px 6px;
+        padding: 1px 7px;
         border-radius: 6px;
-        border: 1px solid rgba(120, 150, 190, 0.35);
-        background: rgba(18, 24, 38, 0.8);
-        color: #cfe7ff;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        border: 1px solid rgba(122, 165, 240, 0.42);
+        background:
+          linear-gradient(180deg, rgba(20, 33, 62, 0.82), rgba(13, 22, 41, 0.82));
+        color: #d8e8ff;
+        font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
         font-size: 12px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
       #overlay-ok,
       #overlay-close {
         appearance: none;
-        border: 1px solid #3a4b66;
-        background: linear-gradient(#0b1220, #0a0f1a);
-        color: #cfe7ff;
+        border: 1px solid rgba(116, 157, 234, 0.5);
+        background:
+          linear-gradient(180deg, rgba(22, 36, 68, 0.96), rgba(12, 20, 37, 0.92));
+        color: #e8f0ff;
         font:
-          600 14px system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          Ubuntu,
-          Cantarell,
-          Noto Sans,
-          Arial,
+          650 13px "Avenir Next",
+          "Gill Sans Nova",
+          "Trebuchet MS",
           sans-serif;
         padding: 8px 14px;
         border-radius: 8px;
         cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        box-shadow:
+          0 8px 18px rgba(0, 0, 0, 0.34),
+          inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        transition:
+          transform 140ms ease,
+          border-color 140ms ease,
+          box-shadow 140ms ease,
+          filter 140ms ease;
       }
       #overlay-ok:hover,
       #overlay-close:hover {
-        filter: brightness(1.1);
+        border-color: rgba(156, 196, 255, 0.74);
+        filter: brightness(1.08);
+        transform: translateY(-1px);
       }
       #overlay-ok:active,
       #overlay-close:active {
         transform: translateY(1px);
+      }
+      #overlay-ok {
+        border-color: rgba(244, 197, 117, 0.55);
+        background:
+          linear-gradient(180deg, rgba(61, 44, 23, 0.95), rgba(31, 22, 11, 0.92));
+        color: #ffe3b1;
+      }
+      #overlay-ok:hover {
+        border-color: rgba(255, 214, 138, 0.78);
+      }
+      #audio-error,
+      #no-webgpu {
+        border: 1px solid rgba(186, 134, 132, 0.4);
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+      }
+      #start-overlay.hidden {
+        display: none !important;
+      }
+      @media (max-width: 800px) {
+        #start-overlay {
+          padding: 12px;
+        }
+        #start-keys {
+          padding: 14px;
+          border-radius: 12px;
+        }
+        #start-keys .grid {
+          grid-template-columns: 1fr;
+          gap: 6px 0;
+        }
+      }
+      @media (min-height: 780px) {
+        #start-overlay {
+          align-items: center;
+        }
       }
     </style>
     <script type="importmap">
@@ -143,8 +234,10 @@
             <div
               style="
                 font:
-                  800 20px/1.2 &quot;Inter&quot;,
-                  system-ui;
+                  800 20px/1.2 "Avenir Next",
+                  "Gill Sans Nova",
+                  "Trebuchet MS",
+                  sans-serif;
                 letter-spacing: 0.02em;
                 color: #eaf2ff;
               "

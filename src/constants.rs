@@ -71,5 +71,5 @@ pub const Z_OFFSET: Vec3 = glam::Vec3::new(0.0, 0.0, -1.5);
 pub const ENGINE_DRAG_MAX_RADIUS: f32 = 1.0;
 
 // Post-processing defaults
-pub const BLOOM_STRENGTH: f32 = 0.9;
-pub const BLOOM_THRESHOLD: f32 = 0.6;
+pub const BLOOM_STRENGTH: f32 = 1.05;
+pub const BLOOM_THRESHOLD: f32 = 0.54;

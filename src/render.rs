@@ -293,9 +293,9 @@ impl<'a> GpuState<'a> {
             width,
             height,
             clear_color: wgpu::Color {
-                r: 0.03,
-                g: 0.04,
-                b: 0.08,
+                r: 0.008,
+                g: 0.012,
+                b: 0.030,
                 a: 1.0,
             },
             cam_eye: Vec3::new(0.0, 0.0, camera_z),
@@ -311,13 +311,13 @@ impl<'a> GpuState<'a> {
         })
     }
     pub fn set_ambient_clear(&mut self, energy01: f32) {
-        // Subtle brighten and slight hue shift with ambient energy
+        // Deep base clear, then lift toward a cool cinematic haze with ambient energy.
         let e = energy01.clamp(0.0, 1.0);
-        let boost = 0.06 * e; // up to +0.06
+        let lift = 0.10 * e;
         self.clear_color = wgpu::Color {
-            r: (0.03 + boost * 0.8) as f64,
-            g: (0.04 + boost * 0.9) as f64,
-            b: (0.08 + boost * 0.5) as f64,
+            r: (0.008 + lift * 0.45) as f64,
+            g: (0.012 + lift * 0.70) as f64,
+            b: (0.030 + lift * 0.95) as f64,
             a: 1.0,
         };
         self.ambient_energy = e;
