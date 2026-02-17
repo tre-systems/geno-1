@@ -112,6 +112,15 @@
         letter-spacing: 0.07em;
         text-transform: uppercase;
       }
+      #start-title {
+        font:
+          800 20px/1.2 "Avenir Next",
+          "Gill Sans Nova",
+          "Trebuchet MS",
+          sans-serif;
+        letter-spacing: 0.02em;
+        color: #eaf2ff;
+      }
       #start-keys .grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -127,6 +136,50 @@
       }
       #start-keys li {
         margin: 4px 0;
+      }
+      #start-keys .intro {
+        margin: 6px 0 2px 0;
+        color: #c9d8f7;
+        font:
+          500 14px/1.45 "Avenir Next",
+          "Gill Sans Nova",
+          "Trebuchet MS",
+          sans-serif;
+      }
+      #start-keys .intro-note {
+        margin: 0 0 12px 0;
+        color: #9fb3dd;
+        font:
+          12px/1.5 "IBM Plex Mono",
+          "SF Mono",
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      #start-keys .help-list {
+        display: grid;
+        gap: 6px;
+      }
+      #start-keys .help-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
+        align-items: start;
+        margin: 0;
+      }
+      #start-keys .help-bindings {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+      }
+      #start-keys .help-desc {
+        color: #c5d5f5;
+        font:
+          500 12px/1.45 "Avenir Next",
+          "Gill Sans Nova",
+          "Trebuchet MS",
+          sans-serif;
       }
       .kbd {
         display: inline-block;
@@ -203,6 +256,10 @@
           grid-template-columns: 1fr;
           gap: 6px 0;
         }
+        #start-keys .help-row {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
       }
       @media (min-height: 780px) {
         #start-overlay {
@@ -231,75 +288,135 @@
               margin-bottom: 6px;
             "
           >
-            <div
-              style="
-                font:
-                  800 20px/1.2 "Avenir Next",
-                  "Gill Sans Nova",
-                  "Trebuchet MS",
-                  sans-serif;
-                letter-spacing: 0.02em;
-                color: #eaf2ff;
-              "
-            >
-              Geno-1
-            </div>
+            <div id="start-title">Geno-1</div>
             <div>
               <button id="overlay-close" aria-label="Close">×</button>
             </div>
           </div>
-          <ul>
-            <li>
-              Click the canvas to play a note. Mouse position shapes the sound.
-            </li>
-          </ul>
+          <p class="intro">
+            Click the canvas to play a note. Mouse position shapes the sound.
+          </p>
+          <p class="intro-note">
+            Press <span class="kbd">H</span> anytime to toggle this help panel.
+          </p>
           <div class="grid">
             <div>
               <h3>Keys</h3>
-              <ul>
-                <li><span class="kbd">A..G</span>: set root note</li>
-                <li><span class="kbd">1..7</span>: set mode</li>
-                <li>
-                  <span class="kbd">8,9,0</span>: set tuning (19/24/31‑TET) •
-                  <span class="kbd">P</span>: C Major Pentatonic
+              <ul class="help-list">
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">A..G</span></span>
+                  <span class="help-desc">Set root note</span>
                 </li>
-                <li><span class="kbd">R</span>: new sequence</li>
-                <li><span class="kbd">T</span>: random root + mode</li>
-                <li><span class="kbd">Space</span>: pause/resume</li>
-                <li>
-                  <span class="kbd">,</span>/<span class="kbd">.</span>: detune
-                  ±50¢ (Shift for ±10¢)
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">1..7</span></span>
+                  <span class="help-desc">Set diatonic mode</span>
                 </li>
-                <li><span class="kbd">/</span>: reset detune to 0¢</li>
-                <li>
-                  <span class="kbd">Enter</span>/<span class="kbd">Esc</span>:
-                  full/exit screen
+                <li class="help-row">
+                  <span class="help-bindings">
+                    <span class="kbd">8</span><span class="kbd">9</span
+                    ><span class="kbd">0</span>
+                  </span>
+                  <span class="help-desc">Select 19/24/31-TET pentatonic</span>
                 </li>
-                <li>
-                  <span class="kbd">←/→</span>: tempo •
-                  <span class="kbd">↑/↓</span>: volume
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">P</span></span>
+                  <span class="help-desc">Reset to C Major Pentatonic</span>
                 </li>
-                <li><span class="kbd">M</span>: mute/unmute master</li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">R</span></span>
+                  <span class="help-desc">Generate a new sequence</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">T</span></span>
+                  <span class="help-desc">Randomize root + mode</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">Space</span></span>
+                  <span class="help-desc">Pause or resume playback</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings">
+                    <span class="kbd">,</span><span class="kbd">.</span
+                    ><span class="kbd">Shift</span>
+                  </span>
+                  <span class="help-desc">Detune ±50¢ (Shift for ±10¢)</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">/</span></span>
+                  <span class="help-desc">Reset detune to 0¢</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings">
+                    <span class="kbd">Enter</span><span class="kbd">Esc</span>
+                  </span>
+                  <span class="help-desc">Enter or exit fullscreen</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings">
+                    <span class="kbd">←</span><span class="kbd">→</span
+                    ><span class="kbd">↑</span><span class="kbd">↓</span>
+                  </span>
+                  <span class="help-desc">Tempo (←/→) and master volume (↑/↓)</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">M</span></span>
+                  <span class="help-desc">Mute or unmute master output</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">H</span></span>
+                  <span class="help-desc">Toggle this help panel</span>
+                </li>
               </ul>
             </div>
             <div>
               <h3>Modes (1..7)</h3>
-              <ul>
-                <li><span class="kbd">1</span>: Ionian (major)</li>
-                <li><span class="kbd">2</span>: Dorian</li>
-                <li><span class="kbd">3</span>: Phrygian</li>
-                <li><span class="kbd">4</span>: Lydian</li>
-                <li><span class="kbd">5</span>: Mixolydian</li>
-                <li><span class="kbd">6</span>: Aeolian (natural minor)</li>
-                <li><span class="kbd">7</span>: Locrian</li>
+              <ul class="help-list">
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">1</span></span>
+                  <span class="help-desc">Ionian (major)</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">2</span></span>
+                  <span class="help-desc">Dorian</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">3</span></span>
+                  <span class="help-desc">Phrygian</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">4</span></span>
+                  <span class="help-desc">Lydian</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">5</span></span>
+                  <span class="help-desc">Mixolydian</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">6</span></span>
+                  <span class="help-desc">Aeolian (natural minor)</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">7</span></span>
+                  <span class="help-desc">Locrian</span>
+                </li>
               </ul>
               <h3 style="margin-top: 10px">Tunings (8,9,0)</h3>
-              <ul>
-                <li><span class="kbd">8</span>: 19‑TET pentatonic</li>
-                <li><span class="kbd">9</span>: 24‑TET pentatonic</li>
-                <li><span class="kbd">0</span>: 31‑TET pentatonic</li>
-                <li>
-                  <span class="kbd">P</span>: C Major Pentatonic (default)
+              <ul class="help-list">
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">8</span></span>
+                  <span class="help-desc">19-TET pentatonic</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">9</span></span>
+                  <span class="help-desc">24-TET pentatonic</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">0</span></span>
+                  <span class="help-desc">31-TET pentatonic</span>
+                </li>
+                <li class="help-row">
+                  <span class="help-bindings"><span class="kbd">P</span></span>
+                  <span class="help-desc">C Major Pentatonic (default)</span>
                 </li>
               </ul>
             </div>
