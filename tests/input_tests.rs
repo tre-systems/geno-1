@@ -1,12 +1,4 @@
-// Host-side tests for pure input functions.
-// The main crate is wasm-only, so we include the pure-Rust modules directly.
-
-#![allow(dead_code)]
-mod input {
-    include!("../src/input.rs");
-}
-
-use input::*;
+use app_web::input::{nearest_index_by_uvx, ray_sphere};
 
 #[test]
 fn ray_sphere_intersection_basic() {

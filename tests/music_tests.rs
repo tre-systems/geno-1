@@ -1,12 +1,4 @@
-// Host-side integration tests for core music engine.
-// The main crate is wasm-only, so we include the pure-Rust module directly.
-
-#![allow(dead_code)]
-mod music {
-    include!("../src/core/music.rs");
-}
-
-use music::*;
+use app_web::core::*;
 use std::time::Duration;
 
 fn make_engine() -> MusicEngine {

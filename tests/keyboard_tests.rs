@@ -1,17 +1,5 @@
-// Host-side tests for pure keyboard mapping functions.
-// The main crate is wasm-only, so we include the pure-Rust modules directly.
-
-#![allow(dead_code)]
-
-mod core {
-    include!("../src/core/music.rs");
-}
-
-mod keymap {
-    include!("../src/events/keymap.rs");
-}
-
-use keymap::{mode_scale_for_digit, root_midi_for_key};
+use app_web::core;
+use app_web::events::keymap::{mode_scale_for_digit, root_midi_for_key};
 
 #[test]
 fn root_midi_for_key_valid_keys() {

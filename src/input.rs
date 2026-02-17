@@ -1,5 +1,9 @@
-use glam::{Vec2, Vec3};
+#[cfg(target_arch = "wasm32")]
+use glam::Vec2;
+use glam::Vec3;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
+#[cfg(target_arch = "wasm32")]
 use web_sys as web;
 
 #[derive(Default, Clone, Copy)]
@@ -33,6 +37,7 @@ pub fn ray_sphere(ray_origin: Vec3, ray_dir: Vec3, center: Vec3, radius: f32) ->
 }
 
 #[inline]
+#[cfg(target_arch = "wasm32")]
 pub fn pointer_canvas_px(ev: &web::PointerEvent, canvas: &web::HtmlCanvasElement) -> Vec2 {
     let el: web::Element = canvas.clone().unchecked_into();
     let rect = el.get_bounding_client_rect();
@@ -44,6 +49,7 @@ pub fn pointer_canvas_px(ev: &web::PointerEvent, canvas: &web::HtmlCanvasElement
 }
 
 #[inline]
+#[cfg(target_arch = "wasm32")]
 pub fn pointer_canvas_uv(ev: &web::PointerEvent, canvas: &web::HtmlCanvasElement) -> [f32; 2] {
     let el: web::Element = canvas.clone().unchecked_into();
     let rect = el.get_bounding_client_rect();
@@ -61,6 +67,7 @@ pub fn pointer_canvas_uv(ev: &web::PointerEvent, canvas: &web::HtmlCanvasElement
 }
 
 #[inline]
+#[cfg(target_arch = "wasm32")]
 pub fn mouse_uv(canvas: &web::HtmlCanvasElement, mouse: &MouseState) -> [f32; 2] {
     let w = canvas.width().max(1) as f32;
     let h = canvas.height().max(1) as f32;
