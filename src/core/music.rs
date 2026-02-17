@@ -146,7 +146,10 @@ impl MusicEngine {
 
     /// Set beats-per-minute for the internal scheduler.
     pub fn set_bpm(&mut self, bpm: f32) {
-        self.params.bpm = bpm;
+        if !bpm.is_finite() {
+            return;
+        }
+        self.params.bpm = bpm.clamp(1.0, 400.0);
     }
 
     /// Set the global detune offset in cents.
@@ -210,11 +213,18 @@ impl MusicEngine {
 
     /// Advance the scheduler by `dt`, pushing any newly scheduled `NoteEvent`s into `out_events`.
     pub fn tick(&mut self, dt: Duration, out_events: &mut Vec<NoteEvent>) {
-        let seconds_per_beat = 60.0 / self.params.bpm as f64;
+        let bpm = self.params.bpm as f64;
+        if !bpm.is_finite() || bpm <= 0.0 {
+            return;
+        }
+        let step = (60.0 / bpm) / 2.0;
+        if !step.is_finite() || step <= 0.0 {
+            return;
+        }
         self.beat_accum += dt.as_secs_f64();
-        while self.beat_accum >= seconds_per_beat / 2.0 {
+        while self.beat_accum >= step {
             // eighth notes grid
-            self.beat_accum -= seconds_per_beat / 2.0;
+            self.beat_accum -= step;
             self.schedule_step(out_events);
         }
     }

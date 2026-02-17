@@ -270,6 +270,32 @@ fn engine_detune_methods() {
 }
 
 #[test]
+fn engine_bpm_methods_guard_invalid_values() {
+    let mut engine = make_engine();
+
+    engine.set_bpm(180.0);
+    assert_eq!(engine.params.bpm, 180.0);
+
+    engine.set_bpm(-20.0);
+    assert_eq!(engine.params.bpm, 1.0, "bpm should clamp to lower bound");
+
+    engine.set_bpm(1000.0);
+    assert_eq!(engine.params.bpm, 400.0, "bpm should clamp to upper bound");
+
+    engine.set_bpm(f32::NAN);
+    assert_eq!(engine.params.bpm, 400.0, "non-finite bpm should be ignored");
+}
+
+#[test]
+fn engine_tick_ignores_invalid_bpm_state() {
+    let mut engine = make_engine();
+    engine.params.bpm = -10.0; // simulate invalid state from external mutation
+    let mut events = Vec::new();
+    engine.tick(Duration::from_secs_f32(1.0), &mut events);
+    assert!(events.is_empty(), "invalid bpm should not schedule events");
+}
+
+#[test]
 fn engine_schedule_with_detune() {
     // Deterministic: 1 voice, prob=1.0, scale=[0], root=C4
     let configs = vec![VoiceConfig {

@@ -3,11 +3,16 @@ use crate::core::{
     AEOLIAN, C_MAJOR_PENTATONIC, DORIAN, IONIAN, LOCRIAN, LYDIAN, MIXOLYDIAN, PHRYGIAN,
     TET19_PENTATONIC, TET24_PENTATONIC, TET31_PENTATONIC,
 };
+use crate::events::keymap::{mode_scale_for_digit, root_midi_for_key};
 use crate::overlay;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use web_sys as web;
+
+thread_local! {
+    static MASTER_UNMUTED_GAIN: RefCell<Option<f32>> = RefCell::new(None);
+}
 
 /// Get the name of the current scale for display purposes
 fn get_scale_name(scale: &[f32]) -> &'static str {
@@ -42,37 +47,6 @@ fn update_hint_after_change(engine: &Rc<RefCell<MusicEngine>>) {
             overlay::update_hint(&document, detune, bpm, scale_name);
             overlay::show_hint(&document);
         }
-    }
-}
-
-#[inline]
-pub fn root_midi_for_key(key: &str) -> Option<i32> {
-    match key {
-        "a" | "A" => Some(69), // A4
-        "b" | "B" => Some(71), // B4
-        "c" | "C" => Some(60), // C4 (middle C)
-        "d" | "D" => Some(62), // D4
-        "e" | "E" => Some(64), // E4
-        "f" | "F" => Some(65), // F4
-        "g" | "G" => Some(67), // G4
-        _ => None,
-    }
-}
-
-#[inline]
-pub fn mode_scale_for_digit(key: &str) -> Option<&'static [f32]> {
-    match key {
-        "1" => Some(IONIAN),
-        "2" => Some(DORIAN),
-        "3" => Some(PHRYGIAN),
-        "4" => Some(LYDIAN),
-        "5" => Some(MIXOLYDIAN),
-        "6" => Some(AEOLIAN),
-        "7" => Some(LOCRIAN),
-        "8" => Some(TET19_PENTATONIC),
-        "9" => Some(TET24_PENTATONIC),
-        "0" => Some(TET31_PENTATONIC),
-        _ => None,
     }
 }
 
@@ -140,6 +114,22 @@ pub fn handle_global_keydown(
             eng.set_bpm(new_bpm);
             drop(eng);
             update_hint_after_change(engine);
+        }
+        "m" | "M" => {
+            let current_gain = master_gain.gain().value();
+            if current_gain <= 0.0001 {
+                let restored = MASTER_UNMUTED_GAIN
+                    .with(|state| state.borrow_mut().take())
+                    .unwrap_or(0.25)
+                    .clamp(0.0, 1.0);
+                _ = master_gain.gain().set_value(restored);
+                log::info!("[keys] master muted=false");
+            } else {
+                MASTER_UNMUTED_GAIN.with(|state| *state.borrow_mut() = Some(current_gain));
+                _ = master_gain.gain().set_value(0.0);
+                log::info!("[keys] master muted=true");
+            }
+            ev.prevent_default();
         }
         "," => {
             let mut eng = engine.borrow_mut();

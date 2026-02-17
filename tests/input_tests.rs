@@ -68,15 +68,14 @@ fn ray_sphere_intersection_inside() {
     let radius = 3.0;
 
     let result = ray_sphere(ray_origin, ray_dir, center, radius);
-    // When ray starts inside sphere, the discriminant calculation might fail
-    // This is a limitation of the current implementation
-    // For now, we'll test that it either succeeds or fails gracefully
-    if let Some(t) = result {
-        assert!(t > 0.0);
-        // Should hit at radius distance from center
-        assert!((t - 3.0).abs() < 0.1);
-    }
-    // If it returns None, that's also acceptable for this edge case
+    assert!(
+        result.is_some(),
+        "ray from inside sphere should still intersect"
+    );
+    let t = result.unwrap();
+    assert!(t > 0.0);
+    // Should hit at radius distance from center
+    assert!((t - 3.0).abs() < 0.1);
 }
 
 #[test]

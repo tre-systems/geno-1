@@ -23,8 +23,13 @@ pub fn ray_sphere(ray_origin: Vec3, ray_dir: Vec3, center: Vec3, radius: f32) ->
     if disc < 0.0 {
         return None;
     }
-    let t = -b - disc.sqrt();
-    (t >= 0.0).then_some(t)
+    let sqrt_disc = disc.sqrt();
+    let t_near = -b - sqrt_disc;
+    if t_near >= 0.0 {
+        return Some(t_near);
+    }
+    let t_far = -b + sqrt_disc;
+    (t_far >= 0.0).then_some(t_far)
 }
 
 #[inline]

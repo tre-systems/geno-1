@@ -95,10 +95,8 @@ async function gotoWithRetry(
   if (overlayShown !== "visible")
     throw new Error("start overlay did not show after H");
 
-  // Engine-dependent checks (only if WebGPU init succeeded and handlers are bound)
-  const engineStarted =
-    logs.some((l) => l.includes("[gesture] starting systems after click")) &&
-    !logs.some((l) => l.includes("WebGPU init error"));
+  // Engine-dependent checks (only if engine handlers are bound)
+  const engineStarted = logs.some((l) => l.includes("[engine] voices="));
 
   if (engineStarted) {
     // Reseed all
@@ -188,7 +186,7 @@ async function gotoWithRetry(
     await new Promise((r) => setTimeout(r, 120));
   } else {
     console.log(
-      "[note] engine not started in CI (WebGPU unavailable); skipping R/Space/+/− assertions"
+      "[note] engine not started in CI (init incomplete); skipping engine assertions"
     );
   }
 

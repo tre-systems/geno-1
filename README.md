@@ -100,6 +100,7 @@ Additional scripts:
 - **Space**: Pause/resume playback
 - **←/→**: Adjust tempo (BPM shown in hint overlay)
 - **↑/↓**: Adjust master volume
+- **M**: Mute/unmute master output
 - **Enter/Escape**: Toggle fullscreen
 
 **🎯 Voice Interaction:**
