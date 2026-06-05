@@ -21,8 +21,16 @@
         margin: 0;
         height: 100%;
         background:
-          radial-gradient(130% 90% at 88% 12%, rgba(55, 91, 184, 0.2), transparent 55%),
-          radial-gradient(85% 65% at 12% 88%, rgba(252, 158, 68, 0.16), transparent 65%),
+          radial-gradient(
+            130% 90% at 88% 12%,
+            rgba(55, 91, 184, 0.2),
+            transparent 55%
+          ),
+          radial-gradient(
+            85% 65% at 12% 88%,
+            rgba(252, 158, 68, 0.16),
+            transparent 65%
+          ),
           linear-gradient(130deg, var(--ink-0), var(--ink-1) 44%, #080d1f);
       }
       #app-canvas {
@@ -49,8 +57,16 @@
         inset: 0;
         pointer-events: none;
         background:
-          radial-gradient(40% 60% at 80% 10%, rgba(83, 131, 231, 0.24), transparent 78%),
-          radial-gradient(55% 70% at 15% 95%, rgba(246, 172, 84, 0.22), transparent 80%),
+          radial-gradient(
+            40% 60% at 80% 10%,
+            rgba(83, 131, 231, 0.24),
+            transparent 78%
+          ),
+          radial-gradient(
+            55% 70% at 15% 95%,
+            rgba(246, 172, 84, 0.22),
+            transparent 80%
+          ),
           repeating-linear-gradient(
             -18deg,
             rgba(255, 255, 255, 0.015) 0px,
@@ -82,7 +98,12 @@
         width: 100%;
         max-width: 820px;
         background:
-          linear-gradient(160deg, rgba(7, 12, 30, 0.88), rgba(10, 20, 44, 0.76) 45%, rgba(21, 16, 35, 0.8)),
+          linear-gradient(
+            160deg,
+            rgba(7, 12, 30, 0.88),
+            rgba(10, 20, 44, 0.76) 45%,
+            rgba(21, 16, 35, 0.8)
+          ),
           var(--panel-bg);
         padding: 18px 20px;
         border: 1px solid var(--panel-border);
@@ -100,7 +121,11 @@
         width: 260px;
         height: 260px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(120, 174, 255, 0.28), transparent 70%);
+        background: radial-gradient(
+          circle,
+          rgba(120, 174, 255, 0.28),
+          transparent 70%
+        );
         filter: blur(8px);
         pointer-events: none;
       }
@@ -186,8 +211,11 @@
         padding: 1px 7px;
         border-radius: 6px;
         border: 1px solid rgba(122, 165, 240, 0.42);
-        background:
-          linear-gradient(180deg, rgba(20, 33, 62, 0.82), rgba(13, 22, 41, 0.82));
+        background: linear-gradient(
+          180deg,
+          rgba(20, 33, 62, 0.82),
+          rgba(13, 22, 41, 0.82)
+        );
         color: #d8e8ff;
         font-family: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
         font-size: 12px;
@@ -197,8 +225,11 @@
       #overlay-close {
         appearance: none;
         border: 1px solid rgba(116, 157, 234, 0.5);
-        background:
-          linear-gradient(180deg, rgba(22, 36, 68, 0.96), rgba(12, 20, 37, 0.92));
+        background: linear-gradient(
+          180deg,
+          rgba(22, 36, 68, 0.96),
+          rgba(12, 20, 37, 0.92)
+        );
         color: #e8f0ff;
         font:
           650 13px "Avenir Next",
@@ -229,8 +260,11 @@
       }
       #overlay-ok {
         border-color: rgba(244, 197, 117, 0.55);
-        background:
-          linear-gradient(180deg, rgba(61, 44, 23, 0.95), rgba(31, 22, 11, 0.92));
+        background: linear-gradient(
+          180deg,
+          rgba(61, 44, 23, 0.95),
+          rgba(31, 22, 11, 0.92)
+        );
         color: #ffe3b1;
       }
       #overlay-ok:hover {
@@ -265,6 +299,42 @@
         #start-overlay {
           align-items: center;
         }
+      }
+      .kofi-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        border: 1px solid rgba(120, 150, 190, 0.32);
+        border-radius: 999px;
+        color: #9bb;
+        background: rgba(10, 14, 24, 0.46);
+        font:
+          600 13px/1 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Ubuntu,
+          Cantarell,
+          Noto Sans,
+          Arial,
+          sans-serif;
+        text-decoration: none;
+        transition:
+          color 0.18s ease,
+          border-color 0.18s ease,
+          background 0.18s ease,
+          transform 0.18s ease;
+      }
+      .kofi-link:hover,
+      .kofi-link:focus-visible {
+        color: #eaf2ff;
+        border-color: rgba(169, 198, 255, 0.58);
+        background: rgba(169, 198, 255, 0.12);
+        outline: none;
+      }
+      .kofi-link:hover {
+        transform: translateY(-1px);
       }
     </style>
     <script type="importmap">
@@ -304,11 +374,15 @@
               <h3>Keys</h3>
               <ul class="help-list">
                 <li class="help-row">
-                  <span class="help-bindings"><span class="kbd">A..G</span></span>
+                  <span class="help-bindings"
+                    ><span class="kbd">A..G</span></span
+                  >
                   <span class="help-desc">Set root note</span>
                 </li>
                 <li class="help-row">
-                  <span class="help-bindings"><span class="kbd">1..7</span></span>
+                  <span class="help-bindings"
+                    ><span class="kbd">1..7</span></span
+                  >
                   <span class="help-desc">Set diatonic mode</span>
                 </li>
                 <li class="help-row">
@@ -331,7 +405,9 @@
                   <span class="help-desc">Randomize root + mode</span>
                 </li>
                 <li class="help-row">
-                  <span class="help-bindings"><span class="kbd">Space</span></span>
+                  <span class="help-bindings"
+                    ><span class="kbd">Space</span></span
+                  >
                   <span class="help-desc">Pause or resume playback</span>
                 </li>
                 <li class="help-row">
@@ -356,7 +432,9 @@
                     <span class="kbd">←</span><span class="kbd">→</span
                     ><span class="kbd">↑</span><span class="kbd">↓</span>
                   </span>
-                  <span class="help-desc">Tempo (←/→) and master volume (↑/↓)</span>
+                  <span class="help-desc"
+                    >Tempo (←/→) and master volume (↑/↓)</span
+                  >
                 </li>
                 <li class="help-row">
                   <span class="help-bindings"><span class="kbd">M</span></span>
@@ -429,14 +507,15 @@
               margin-top: 8px;
             "
           >
-            <a href="https://ko-fi.com/N4N31DPNUS" target="_blank"
-              ><img
-                height="28"
-                style="border: 0px; height: 28px; opacity: 0.9"
-                src="https://storage.ko-fi.com/cdn/kofi2.png?v=6"
-                border="0"
-                alt="Buy Me a Coffee at ko-fi.com"
-            /></a>
+            <a
+              class="kofi-link"
+              href="https://ko-fi.com/N4N31DPNUS"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span aria-hidden="true">☕</span>
+              Buy me a coffee
+            </a>
             <button id="overlay-ok">OK</button>
           </div>
         </div>
@@ -495,7 +574,7 @@
       import(`./pkg/app_web.js?v=${v}`).then((m) => {
         console.log(
           "[index] wasm entry loaded url:",
-          new URL(`./pkg/app_web.js?v=${v}`, window.location.href).toString()
+          new URL(`./pkg/app_web.js?v=${v}`, window.location.href).toString(),
         );
         return m.default();
       });
