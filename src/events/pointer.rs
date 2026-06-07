@@ -1,12 +1,13 @@
-use crate::audio;
 use crate::constants::{
     CAMERA_Z, CLICK_DUR_BASE_SEC, CLICK_DUR_SPAN_SEC, CLICK_NOTE_BASE_MIDI, CLICK_NOTE_MIDI_SPAN,
     CLICK_VEL_BASE, CLICK_VEL_SPAN, ENGINE_DRAG_MAX_RADIUS, PICK_SPHERE_RADIUS, SPREAD, Z_OFFSET,
 };
 use crate::core::{MidiNote, MusicEngine, VoiceIndex};
+use crate::events::command::InputCommand;
 use crate::input;
 use crate::render;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use web_sys as web;
@@ -18,11 +19,7 @@ pub struct InputWiring {
     pub mouse_state: Rc<RefCell<input::MouseState>>,
     pub hover_index: Rc<RefCell<Option<usize>>>,
     pub drag_state: Rc<RefCell<input::DragState>>,
-    pub voice_gains: Rc<Vec<web::GainNode>>,
-    pub delay_sends: Rc<Vec<web::GainNode>>,
-    pub reverb_sends: Rc<Vec<web::GainNode>>,
-    pub audio_ctx: web::AudioContext,
-    pub queued_ripple_uv: Rc<RefCell<Option<[f32; 2]>>>,
+    pub queue: Rc<RefCell<VecDeque<InputCommand>>>,
 }
 
 pub fn wire_input_handlers(w: InputWiring) {
@@ -140,44 +137,37 @@ fn wire_pointerup(w: &InputWiring) {
         if was_dragging {
             w.drag_state.borrow_mut().active = false;
         } else if let Some(i) = *w.hover_index.borrow() {
-            let shift = ev.shift_key();
-            let alt = ev.alt_key();
-            if alt {
-                w.engine.borrow_mut().toggle_solo(VoiceIndex(i));
-                log::info!("[click] solo voice {}", i);
-            } else if shift {
-                w.engine.borrow_mut().reseed_voice(VoiceIndex(i), None);
-                log::info!("[click] reseed voice {}", i);
+            let cmd = if ev.alt_key() {
+                InputCommand::VoiceSolo(VoiceIndex(i))
+            } else if ev.shift_key() {
+                InputCommand::VoiceReseed(VoiceIndex(i))
             } else {
-                w.engine.borrow_mut().toggle_mute(VoiceIndex(i));
-                log::info!("[click] toggle mute voice {}", i);
-            }
+                InputCommand::VoiceMute(VoiceIndex(i))
+            };
+            w.queue.borrow_mut().push_back(cmd);
         } else {
             let [uvx, uvy] = input::pointer_canvas_uv(&ev, &w.canvas);
             if uvx.is_finite() && uvy.is_finite() {
                 let freq = MidiNote(CLICK_NOTE_BASE_MIDI + uvx * CLICK_NOTE_MIDI_SPAN).to_hz();
-                let vel = CLICK_VEL_BASE + CLICK_VEL_SPAN * uvy;
-                let eng = w.engine.borrow();
-                let norm_xs: Vec<f32> = eng
-                    .voices
-                    .iter()
-                    .map(|v| (v.position.x / 3.0).clamp(-1.0, 1.0) * 0.5 + 0.5)
-                    .collect();
-                let best_i = crate::input::nearest_index_by_uvx(&norm_xs, uvx);
-                let dur = CLICK_DUR_BASE_SEC + CLICK_DUR_SPAN_SEC * (1.0 - uvy as f64);
-                let wf = eng.configs[best_i].waveform;
-                drop(eng);
-                audio::trigger_one_shot(
-                    &w.audio_ctx,
-                    wf,
+                let velocity = CLICK_VEL_BASE + CLICK_VEL_SPAN * uvy;
+                let duration_sec = CLICK_DUR_BASE_SEC + CLICK_DUR_SPAN_SEC * (1.0 - uvy as f64);
+                let best_i = {
+                    let eng = w.engine.borrow();
+                    let norm_xs: Vec<f32> = eng
+                        .voices
+                        .iter()
+                        .map(|v| (v.position.x / 3.0).clamp(-1.0, 1.0) * 0.5 + 0.5)
+                        .collect();
+                    input::nearest_index_by_uvx(&norm_xs, uvx)
+                };
+                let mut queue = w.queue.borrow_mut();
+                queue.push_back(InputCommand::PlayNote {
+                    voice: VoiceIndex(best_i),
                     freq,
-                    vel,
-                    dur,
-                    &w.voice_gains[best_i],
-                    &w.delay_sends[best_i],
-                    &w.reverb_sends[best_i],
-                );
-                *w.queued_ripple_uv.borrow_mut() = Some([uvx, uvy]);
+                    velocity,
+                    duration_sec,
+                });
+                queue.push_back(InputCommand::Ripple([uvx, uvy]));
             }
         }
         w.mouse_state.borrow_mut().down = false;

@@ -29,6 +29,37 @@ fn root_midi_for_key_invalid_keys() {
 }
 
 #[test]
+fn command_for_key_maps_discrete_actions() {
+    use app_web::core::{Cents, MidiNote};
+    use app_web::events::command::{command_for_key, InputCommand};
+
+    assert_eq!(
+        command_for_key("c", false),
+        Some(InputCommand::SetRoot(MidiNote(60.0)))
+    );
+    assert_eq!(
+        command_for_key("1", false),
+        Some(InputCommand::SetScale(core::IONIAN))
+    );
+    assert_eq!(command_for_key(" ", false), Some(InputCommand::TogglePause));
+    assert_eq!(
+        command_for_key("t", false),
+        Some(InputCommand::RandomizeRootMode)
+    );
+    assert_eq!(command_for_key("h", false), Some(InputCommand::ToggleHelp));
+    assert_eq!(command_for_key("z", false), None);
+    // Shift changes the detune magnitude.
+    assert_eq!(
+        command_for_key(".", true),
+        Some(InputCommand::DetuneDelta(Cents(10.0)))
+    );
+    assert_eq!(
+        command_for_key(".", false),
+        Some(InputCommand::DetuneDelta(Cents(50.0)))
+    );
+}
+
+#[test]
 fn mode_scale_for_digit_valid_digits() {
     let cases = [
         ("1", core::IONIAN),

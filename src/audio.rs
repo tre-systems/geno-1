@@ -4,6 +4,28 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use web_sys as web;
 
+thread_local! {
+    static MASTER_UNMUTED_GAIN: RefCell<Option<f32>> = RefCell::new(None);
+}
+
+/// Toggle the master bus between muted and its previous gain (remembered across
+/// toggles). Returns the new muted state.
+pub fn toggle_master_mute(master_gain: &web::GainNode) -> bool {
+    let current = master_gain.gain().value();
+    if current <= 0.0001 {
+        let restored = MASTER_UNMUTED_GAIN
+            .with(|s| s.borrow_mut().take())
+            .unwrap_or(0.25)
+            .clamp(0.0, 1.0);
+        _ = master_gain.gain().set_value(restored);
+        false
+    } else {
+        MASTER_UNMUTED_GAIN.with(|s| *s.borrow_mut() = Some(current));
+        _ = master_gain.gain().set_value(0.0);
+        true
+    }
+}
+
 pub struct FxBuses {
     pub master_gain: web::GainNode,
     pub sat_pre: web::GainNode,

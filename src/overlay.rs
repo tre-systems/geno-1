@@ -1,4 +1,26 @@
+use crate::core::{
+    AEOLIAN, C_MAJOR_PENTATONIC, DORIAN, IONIAN, LOCRIAN, LYDIAN, MIXOLYDIAN, PHRYGIAN,
+    TET19_PENTATONIC, TET24_PENTATONIC, TET31_PENTATONIC,
+};
 use web_sys as web;
+
+/// Human-readable name for a scale slice, for the hint overlay.
+pub fn scale_name(scale: &[f32]) -> &'static str {
+    match scale {
+        s if s == IONIAN => "Ionian (major)",
+        s if s == DORIAN => "Dorian",
+        s if s == PHRYGIAN => "Phrygian",
+        s if s == LYDIAN => "Lydian",
+        s if s == MIXOLYDIAN => "Mixolydian",
+        s if s == AEOLIAN => "Aeolian (minor)",
+        s if s == LOCRIAN => "Locrian",
+        s if s == C_MAJOR_PENTATONIC => "C Major Pentatonic",
+        s if s == TET19_PENTATONIC => "19-TET pentatonic",
+        s if s == TET24_PENTATONIC => "24-TET pentatonic",
+        s if s == TET31_PENTATONIC => "31-TET pentatonic",
+        _ => "Custom",
+    }
+}
 
 #[inline]
 pub fn show(document: &web::Document) {

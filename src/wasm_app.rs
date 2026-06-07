@@ -4,6 +4,7 @@ use crate::core::{
 use crate::{audio, dom, events, frame, input, overlay, render};
 use glam::Vec3;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use wasm_bindgen::prelude::*;
@@ -187,7 +188,6 @@ async fn init() -> anyhow::Result<()> {
                 };
 
                 wire_overlay_buttons(&audio_ctx, &paused);
-                events::wire_overlay_toggle_h(&document);
 
                 // FX buses
                 let fx = match audio::build_fx_buses(&audio_ctx) {
@@ -237,8 +237,9 @@ async fn init() -> anyhow::Result<()> {
                 let pulses = Rc::new(RefCell::new(vec![0.0_f32; engine.borrow().voices.len()]));
                 let (analyser, analyser_buf) = audio::create_analyser(&audio_ctx);
 
-                // Queued ripple UV from pointer taps (read by render tick)
-                let queued_ripple_uv: Rc<RefCell<Option<[f32; 2]>>> = Rc::new(RefCell::new(None));
+                // Shared input command queue: keyboard + pointer enqueue, frame drains.
+                let input_queue: Rc<RefCell<VecDeque<events::InputCommand>>> =
+                    Rc::new(RefCell::new(VecDeque::new()));
 
                 // ---------------- Interaction state ----------------
                 let mouse_state = Rc::new(RefCell::new(input::MouseState::default()));
@@ -246,12 +247,7 @@ async fn init() -> anyhow::Result<()> {
                 let drag_state = Rc::new(RefCell::new(input::DragState::default()));
 
                 // Keyboard controls
-                events::wire_global_keydown(
-                    engine.clone(),
-                    paused.clone(),
-                    master_gain.clone(),
-                    canvas_for_click_inner.clone(),
-                );
+                events::wire_global_keydown(input_queue.clone());
 
                 // Pointer handlers (move/down/up)
                 events::wire_input_handlers(events::InputWiring {
@@ -260,22 +256,20 @@ async fn init() -> anyhow::Result<()> {
                     mouse_state: mouse_state.clone(),
                     hover_index: hover_index.clone(),
                     drag_state: drag_state.clone(),
-                    voice_gains: voice_gains.clone(),
-                    delay_sends: delay_sends.clone(),
-                    reverb_sends: reverb_sends.clone(),
-                    audio_ctx: audio_ctx.clone(),
-                    queued_ripple_uv: queued_ripple_uv.clone(),
+                    queue: input_queue.clone(),
                 });
 
                 // Scheduler + renderer loop driven by requestAnimationFrame
                 let frame_ctx = Rc::new(RefCell::new(frame::FrameContext {
                     engine: engine.clone(),
                     paused: paused.clone(),
+                    input_queue: input_queue.clone(),
                     pulses: pulses.clone(),
                     hover_index: hover_index.clone(),
                     canvas: canvas_for_click_inner.clone(),
                     mouse: mouse_state.clone(),
                     audio_ctx: audio_ctx.clone(),
+                    master_gain: master_gain.clone(),
                     listener: listener_for_tick.clone(),
                     voice_gains: voice_gains.clone(),
                     delay_sends: delay_sends.clone(),
@@ -290,7 +284,7 @@ async fn init() -> anyhow::Result<()> {
                     analyser: analyser.clone(),
                     analyser_buf: analyser_buf.clone(),
                     gpu,
-                    queued_ripple_uv: queued_ripple_uv.clone(),
+                    pending_ripple: None,
                     last_instant: Instant::now(),
                     prev_uv: [0.5, 0.5],
                     swirl_energy: 0.0,

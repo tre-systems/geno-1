@@ -1,10 +1,13 @@
 use crate::audio;
 use crate::constants::*;
-use crate::core::MusicEngine;
+use crate::core::{Bpm, MusicEngine, VoiceIndex, C_MAJOR_PENTATONIC};
+use crate::events::InputCommand;
 use crate::input;
+use crate::overlay;
 use crate::render;
 use glam::Vec3;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
@@ -16,6 +19,7 @@ use crate::constants::CAMERA_Z;
 pub struct FrameContext<'a> {
     pub engine: Rc<RefCell<MusicEngine>>,
     pub paused: Rc<RefCell<bool>>,
+    pub input_queue: Rc<RefCell<VecDeque<InputCommand>>>,
     pub pulses: Rc<RefCell<Vec<f32>>>,
     #[allow(dead_code)] // Used in pointer events, not directly in frame module
     pub hover_index: Rc<RefCell<Option<usize>>>,
@@ -24,6 +28,7 @@ pub struct FrameContext<'a> {
     pub mouse: Rc<RefCell<input::MouseState>>,
 
     pub audio_ctx: web::AudioContext,
+    pub master_gain: web::GainNode,
     pub listener: web::AudioListener,
     pub voice_gains: Rc<Vec<web::GainNode>>,
     pub delay_sends: Rc<Vec<web::GainNode>>,
@@ -41,7 +46,7 @@ pub struct FrameContext<'a> {
     pub analyser_buf: Rc<RefCell<Vec<f32>>>,
 
     pub gpu: Option<render::GpuState<'a>>,
-    pub queued_ripple_uv: Rc<RefCell<Option<[f32; 2]>>>,
+    pub pending_ripple: Option<[f32; 2]>,
 
     pub last_instant: Instant,
     pub prev_uv: [f32; 2],
@@ -58,6 +63,8 @@ impl<'a> FrameContext<'a> {
         let dt = now - self.last_instant;
         self.last_instant = now;
         let dt_sec = dt.as_secs_f32();
+
+        self.apply_input_commands();
 
         let mut note_events = Vec::new();
         if !*self.paused.borrow() {
@@ -164,7 +171,7 @@ impl<'a> FrameContext<'a> {
 
             if let Some(g) = &mut self.gpu {
                 g.set_camera(cam_eye, cam_target);
-                if let Some(uvr) = self.queued_ripple_uv.borrow_mut().take() {
+                if let Some(uvr) = self.pending_ripple.take() {
                     g.set_ripple(uvr, 1.0);
                 }
                 let speed_norm = ((self.swirl_vel[0] * self.swirl_vel[0]
@@ -238,6 +245,137 @@ impl<'a> FrameContext<'a> {
         self.swirl_energy = (1.0 - SWIRL_ENERGY_BLEND_ALPHA) * self.swirl_energy
             + SWIRL_ENERGY_BLEND_ALPHA * target;
         self.prev_uv = uv;
+    }
+
+    /// Drain the shared input queue and apply each discrete command. This is the
+    /// single point where keyboard/pointer intents mutate engine, audio, and UI
+    /// state; the event closures only enqueue.
+    fn apply_input_commands(&mut self) {
+        let cmds: Vec<InputCommand> = self.input_queue.borrow_mut().drain(..).collect();
+        if cmds.is_empty() {
+            return;
+        }
+        let mut params_changed = false;
+        for cmd in cmds {
+            match cmd {
+                InputCommand::SetRoot(root) => {
+                    self.engine.borrow_mut().params.root = root;
+                    params_changed = true;
+                }
+                InputCommand::SetScale(scale) => {
+                    self.engine.borrow_mut().params.scale = scale;
+                    params_changed = true;
+                }
+                InputCommand::PresetPentatonic => {
+                    self.engine.borrow_mut().params.scale = C_MAJOR_PENTATONIC;
+                    params_changed = true;
+                }
+                InputCommand::ReseedAll => {
+                    let mut eng = self.engine.borrow_mut();
+                    let n = eng.voices.len();
+                    for i in 0..n {
+                        eng.reseed_voice(VoiceIndex(i), None);
+                    }
+                    drop(eng);
+                    log::info!("[keys] reseeded all voices");
+                }
+                InputCommand::RandomizeRootMode => {
+                    self.engine.borrow_mut().randomize_root_and_mode();
+                    params_changed = true;
+                }
+                InputCommand::TogglePause => {
+                    let mut p = self.paused.borrow_mut();
+                    *p = !*p;
+                    log::info!("[keys] paused={}", *p);
+                }
+                InputCommand::TempoDelta(d) => {
+                    let mut eng = self.engine.borrow_mut();
+                    let nb = (eng.params.bpm.0 + d).clamp(40.0, 240.0);
+                    eng.set_bpm(Bpm(nb));
+                    params_changed = true;
+                }
+                InputCommand::VolumeDelta(d) => {
+                    let v = self.master_gain.gain().value();
+                    _ = self.master_gain.gain().set_value((v + d).clamp(0.0, 1.0));
+                }
+                InputCommand::ToggleMute => {
+                    let muted = audio::toggle_master_mute(&self.master_gain);
+                    log::info!("[keys] master muted={}", muted);
+                }
+                InputCommand::DetuneDelta(c) => {
+                    self.engine.borrow_mut().adjust_detune_cents(c);
+                    params_changed = true;
+                }
+                InputCommand::ResetDetune => {
+                    self.engine.borrow_mut().reset_detune();
+                    params_changed = true;
+                }
+                InputCommand::ToggleFullscreen => {
+                    if let Some(doc) = web::window().and_then(|w| w.document()) {
+                        if doc.fullscreen_element().is_some() {
+                            _ = doc.exit_fullscreen();
+                        } else {
+                            _ = self.canvas.request_fullscreen();
+                        }
+                    }
+                }
+                InputCommand::ExitFullscreen => {
+                    if let Some(doc) = web::window().and_then(|w| w.document()) {
+                        _ = doc.exit_fullscreen();
+                    }
+                }
+                InputCommand::ToggleHelp => {
+                    if let Some(doc) = web::window().and_then(|w| w.document()) {
+                        overlay::toggle(&doc);
+                    }
+                }
+                InputCommand::VoiceMute(v) => {
+                    self.engine.borrow_mut().toggle_mute(v);
+                    log::info!("[click] toggle mute voice {}", v.0);
+                }
+                InputCommand::VoiceSolo(v) => {
+                    self.engine.borrow_mut().toggle_solo(v);
+                    log::info!("[click] solo voice {}", v.0);
+                }
+                InputCommand::VoiceReseed(v) => {
+                    self.engine.borrow_mut().reseed_voice(v, None);
+                    log::info!("[click] reseed voice {}", v.0);
+                }
+                InputCommand::PlayNote {
+                    voice,
+                    freq,
+                    velocity,
+                    duration_sec,
+                } => {
+                    let waveform = self.engine.borrow().configs[voice.0].waveform;
+                    audio::trigger_one_shot(
+                        &self.audio_ctx,
+                        waveform,
+                        freq,
+                        velocity,
+                        duration_sec,
+                        &self.voice_gains[voice.0],
+                        &self.delay_sends[voice.0],
+                        &self.reverb_sends[voice.0],
+                    );
+                }
+                InputCommand::Ripple(uv) => self.pending_ripple = Some(uv),
+            }
+        }
+        if params_changed {
+            if let Some(doc) = web::window().and_then(|w| w.document()) {
+                let (detune, bpm, name) = {
+                    let eng = self.engine.borrow();
+                    (
+                        eng.params.detune.0,
+                        eng.params.bpm.0,
+                        overlay::scale_name(eng.params.scale),
+                    )
+                };
+                overlay::update_hint(&doc, detune, bpm, name);
+                overlay::show_hint(&doc);
+            }
+        }
     }
 }
 
