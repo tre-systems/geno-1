@@ -6,60 +6,82 @@ it. For *what* the system does and the audio/visual pipelines, see [`SPEC.md`](S
 ## System Overview
 
 Geno-1 is a single Rust crate (`app-web`) compiled to WebAssembly. A `requestAnimationFrame` loop
-([`frame.rs`](../src/frame.rs)) advances a deterministic music engine, synthesises any new notes
-through a Web Audio graph, modulates global effects from pointer gestures, updates per-voice spatial
-audio, and renders an audio-reactive wave field with WebGPU. The core logic (engine, key maps,
-picking) is plain host-testable Rust; everything browser-facing is gated to the wasm target.
+([`frame.rs`](../src/frame.rs)) drains a shared input queue, advances a deterministic music engine,
+synthesises new notes through a Web Audio graph, modulates global effects from pointer gestures,
+updates per-voice spatial audio, and renders an audio-reactive wave field with WebGPU. The core logic
+(engine, key maps, picking, the key→command mapping) is plain host-testable Rust; everything
+browser-facing is gated to the wasm target.
 
 ## Core Patterns
 
 Geno-1 is small, but it leans on a consistent set of patterns. Knowing these explains most of the
 code, and new code should fit one of them rather than inventing a parallel mechanism.
 
-### The engine core (`core/`, `input`, `events::keymap`)
+### The engine core (`core/`, `input`, `events::keymap`, `events::command`)
 
 - **Host-testable core, wasm-gated shell.** [`lib.rs`](../src/lib.rs) exports `core`, `events`, and
-  `input` unconditionally and gates everything browser-facing (`audio`, `render`, `frame`,
-  `wasm_app`, `constants`, …) behind `#[cfg(target_arch = "wasm32")]`. Pure logic — the music engine,
-  key tables, ray-picking — compiles and is unit-tested on the host; Web Audio / WebGPU / DOM code
-  never leaks into it. **New logic that can be expressed without the browser belongs in
-  `core`/`input`/`keymap` so it stays testable.**
+  `input` unconditionally and gates everything browser-facing (`audio`, `render`, `frame`, `wasm_app`,
+  `constants`, …) behind `#[cfg(target_arch = "wasm32")]`. Pure logic — the music engine, key tables,
+  ray-picking, the key→command map — compiles and is unit-tested on the host; Web Audio / WebGPU / DOM
+  code never leaks into it. **New logic that can be expressed without the browser belongs here so it
+  stays testable.**
+- **Strongly-typed domain units.** [`units.rs`](../src/core/units.rs) wraps the domain's numbers in
+  `Copy` newtypes — `MidiNote`, `Hz`, `Cents`, `Bpm`, `VoiceIndex` — so a frequency can't be passed
+  where a note is expected and a voice index can't be confused with any other `usize`. Domain rules
+  (clamps, `MidiNote::to_hz`, `Bpm::eighth_step_seconds`) live on the types, applied uniformly.
 - **Deterministic, seeded engine.** [`MusicEngine`](../src/core/music.rs) owns per-voice `StdRng`s
-  derived from one base seed by hash-mixing (`seed ^ i*0x9E37…`), so a seed reproduces the music and
-  voices reseed independently. No wall-clock, no I/O in the engine.
+  plus one `aux_rng`, all derived from a single base seed by hash-mixing, so a seed reproduces the
+  music and every randomized action — including the `T` key (`randomize_root_and_mode`) — is
+  deterministic and host-testable. No wall-clock, no I/O in the engine.
 - **Fixed-timestep accumulator.** [`MusicEngine::tick(dt)`](../src/core/music.rs) advances
   `beat_accum += dt` and drains it in fixed eighth-note `step`s (`while beat_accum >= step`), so
   scheduling is frame-rate independent and reproducible. The host owns the clock and feeds elapsed `dt`.
 - **Plain structs, not an ECS.** The voice set is tiny and fixed, so the engine holds `Vec<VoiceState>`
   + `Vec<VoiceConfig>` as plain fields and iterates them in `schedule_step`.
 - **Pure functions for math/lookup.** [`midi_to_hz`](../src/core/music.rs),
-  [`ray_sphere` / `nearest_index_by_uvx`](../src/input.rs),
-  [`screen_to_world_ray`](../src/camera.rs), and
-  [`root_midi_for_key` / `mode_scale_for_digit`](../src/events/keymap.rs) are pure; the 31 host tests
-  target exactly these.
+  [`ray_sphere` / `nearest_index_by_uvx`](../src/input.rs), [`screen_to_world_ray`](../src/camera.rs),
+  [`root_midi_for_key` / `mode_scale_for_digit`](../src/events/keymap.rs), and
+  [`command_for_key`](../src/events/command.rs) are pure; the 33 host tests target exactly these.
+
+### Input
+
+- **Pure key→command mapping.** [`command_for_key`](../src/events/command.rs) maps a key (+ shift) to
+  an `InputCommand` with no side effects, so it is host-tested. The keyboard closure
+  ([`keyboard.rs`](../src/events/keyboard.rs)) is a thin shell: map the key, enqueue the command,
+  `preventDefault` if needed. There is exactly one `window` `keydown` listener — the help toggle is a
+  normal command, not a separate listener.
+- **One input command queue.** All *discrete* intents — every keyboard action plus voice
+  mute/solo/reseed, click-to-play, and ripples — are pushed as [`InputCommand`](../src/events/command.rs)
+  values onto a shared `VecDeque`. The frame loop drains it in one place
+  ([`FrameContext::apply_input_commands`](../src/frame.rs)); event closures never mutate engine, audio,
+  or UI state directly. **New input sources (touch, MIDI) should enqueue commands, not reach into state.**
+
+### The frame loop (`frame.rs`)
+
+- **Named, ordered systems.** [`FrameContext::frame`](../src/frame.rs) is an explicit pipeline of named
+  methods run in a fixed order: `apply_input_commands` → `advance_music` → `update_pulses` →
+  `update_swirl_and_fx` → `update_spatial_audio` → `update_ambient` → `render_scene` →
+  `trigger_scheduled_notes`. The ordering is the contract; each system reads the shared state it needs.
+- **Interior mutability with scoped borrows.** Shared state (`engine`, `paused`, `input_queue`,
+  `pulses`, `hover_index`, `drag_state`) is `Rc<RefCell<_>>` shared between the RAF loop and the event
+  closures. Borrows are deliberately scoped and dropped before re-borrowing or calling out — the
+  single-threaded discipline that keeps `RefCell` from panicking.
 
 ### WASM runtime & shared state
 
-- **`wasm-bindgen` facade.** [`wasm_app::start`](../src/wasm_app.rs) is the only
-  `#[wasm_bindgen(start)]` surface; it builds the graph and hands off to the frame loop. JS holds no
-  application state.
+- **`wasm-bindgen` facade.** [`wasm_app::start`](../src/wasm_app.rs) is the only `#[wasm_bindgen(start)]`
+  surface; it builds the graph and hands off to the frame loop. JS holds no application state.
 - **Aggregate / parameter-object structs.** Per-frame state and resources are bundled into one
-  [`FrameContext`](../src/frame.rs) instead of being threaded individually; likewise
-  [`FxBuses` / `VoiceRouting`](../src/audio.rs) and [`InputWiring`](../src/events/pointer.rs). One
-  struct in, one `frame()` method out.
-- **Interior mutability with scoped borrows.** Shared state (`engine`, `paused`, `pulses`,
-  `hover_index`, `drag_state`, `queued_ripple_uv`) is `Rc<RefCell<_>>` shared between the RAF loop and
-  event closures. Borrows are deliberately scoped and dropped before re-borrowing or calling out
-  (`drop(ms)`, block-scoped `borrow_mut`, `.take()`) — the single-threaded discipline that keeps
-  `RefCell` from panicking.
+  [`FrameContext`](../src/frame.rs); likewise [`FxBuses` / `VoiceRouting`](../src/audio.rs) and
+  [`InputWiring`](../src/events/pointer.rs). One struct in, one `frame()` method out.
 - **Closure-and-`forget` event wiring.** Every listener follows `Closure::wrap(Box::new(move |ev| …))`
   → `add_event_listener_with_callback` → `closure.forget()` for a `'static` lifetime; the RAF loop is a
   self-rescheduling `Rc<RefCell<Option<Closure>>>` ([`start_loop`](../src/frame.rs)).
-- **Optional subsystems degrade gracefully.** `gpu: Option<GpuState>` and
-  `analyser: Option<AnalyserNode>` let the app run (and the headless test pass) without WebGPU or an
-  analyser; [`init_gpu`](../src/frame.rs) returns `None` and surfaces a DOM message instead of panicking.
+- **Optional subsystems degrade gracefully.** `gpu: Option<GpuState>` and `analyser: Option<AnalyserNode>`
+  let the app run (and the headless test pass) without WebGPU or an analyser; [`init_gpu`](../src/frame.rs)
+  returns `None` and surfaces a DOM message instead of panicking.
 - **Once-guard and module singletons.** A `static STARTED: AtomicBool` guards one-time init; a
-  `thread_local! MASTER_UNMUTED_GAIN` remembers pre-mute gain ([`keyboard.rs`](../src/events/keyboard.rs)).
+  `thread_local! MASTER_UNMUTED_GAIN` in [`audio.rs`](../src/audio.rs) remembers the pre-mute gain.
 
 ### Audio graph (`audio.rs`)
 
@@ -68,9 +90,13 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   build the Web Audio graph once and return a struct of the nodes the frame loop later modulates.
 - **Fire-and-forget JS calls (`_ = …`).** Node `connect` / `set_value` / ramp calls return `Result`s
   whose failure is non-fatal; they are discarded with `_ = …`, reserving real handling for construction.
-- **Errors surfaced at construction boundaries.** `init()` uses `anyhow::Result` + `?` and shows a
-  user-facing DOM message on failure; the `build_*` / `wire_*` factories return `Result<_, ()>` and
-  abort init with a logged message. Per-frame code never returns `Result`.
+- **Errors as `anyhow` at construction boundaries.** The `build_*` / `wire_*` factories and `init()`
+  all use `anyhow::Result` + `?`, carrying the failing node's name; init shows a user-facing DOM
+  message on failure. Per-frame code never returns `Result`.
+- **Bounded note pool.** [`trigger_one_shot`](../src/audio.rs) returns the `ActiveNote` (oscillator +
+  gain + stop time) it creates. The frame loop ([`spawn_note`](../src/frame.rs)) tracks live notes,
+  disconnects any whose stop time has passed, and caps concurrency at `MAX_POLYPHONY`, so node lifetime
+  is bounded and explicit rather than left to the GC.
 
 ### Rendering (`render/`)
 
@@ -82,71 +108,45 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 - **Ping-pong offscreen targets.** Bloom runs HDR → half-res `bloom_a` / `bloom_b` ping-pong, recreated
   on resize (`RenderTargets`). The full pass list is in [`SPEC.md`](SPEC.md).
 
-### Input
-
-- **Pure key tables, effectful handlers.** [`keymap.rs`](../src/events/keymap.rs) is pure lookup
-  (host-tested); [`keyboard.rs`](../src/events/keyboard.rs) and [`pointer.rs`](../src/events/pointer.rs)
-  apply the effects. Picking math (`ray_sphere`) is pure; the pointer handler wires it to engine + audio.
-- **One-slot command queue for deferred input.** A tap stores `queued_ripple_uv = Some(uv)`; the frame
-  loop consumes it with `.take()` and forwards it to the GPU, decoupling the event from the render.
-
 ### Tuning
 
-- **Centralized tuning constants.** [`constants.rs`](../src/constants.rs) holds the named runtime tuning
-  values (decay τ, swirl spring, FX/send weights, click-to-note mapping, analyser response) so behavior
-  is tuned in one place. Audio-graph *construction* values (sample rate, node defaults, IR length) stay
-  local to [`audio.rs`](../src/audio.rs) on purpose — they describe the graph's shape, not its tuning.
+- **Const defaults, runtime `Config`.** [`constants.rs`](../src/constants.rs) holds the named tuning
+  values as the compile-time defaults. The interactive-feel subset (inertial swirl, swirl energy, and
+  the global FX it drives) is mirrored into a cloneable [`Config`](../src/constants.rs) seeded from
+  those consts via `Default`; the frame holds one `Config` and the swirl/FX systems read it, so a preset
+  or live-tuning layer can vary the feel without a rebuild. Structural constants (camera, picking,
+  bloom, click-to-note mapping) stay compile-time.
 
-## Consistency Notes
+## Intentional Boundaries
 
-Places where the code does not yet follow the patterns above. None are bugs; they are where new work
-should converge.
+Deliberate choices, so they are not mistaken for missing patterns:
 
-- **`T` (random root + mode) bypasses the seeded engine.** [`keyboard.rs`](../src/events/keyboard.rs)
-  calls `js_sys::Math::random()` directly — non-deterministic, browser-only, and untestable — instead
-  of routing through a seeded `MusicEngine` method like the rest of the engine.
-- **Two note-trigger implementations.** [`audio::trigger_one_shot`](../src/audio.rs) (click notes) and
-  an inlined envelope block in [`frame.rs`](../src/frame.rs) (scheduled notes) duplicate the
-  oscillator+envelope wiring with slightly different timings; one should call the other.
-- **Input isn't uniformly funneled.** Ripples use the one-slot queue, but keyboard and pointer
-  otherwise mutate the engine directly from their closures — the command-queue pattern is applied in
-  one place rather than as the general input path.
-- **Two `window` keydown listeners.** The main handler ([`wire_global_keydown`](../src/events/keyboard.rs))
-  and a separate `H`-only listener (`wire_overlay_toggle_h`) both bind `keydown`; folding `H` into the
-  main dispatch would leave a single entry point.
-- **Two error idioms.** `anyhow::Result` at the init boundary vs. `Result<(), ()>` in the audio
-  factories — harmless, but worth standardizing.
+- **Continuous manipulation stays frame-coupled.** Voice drag (`pointermove` → `set_voice_position`)
+  and the pointer swirl are continuous, per-frame manipulations rather than discrete intents, so they
+  update state directly instead of going through the command queue.
+- **Click-to-note mapping is computed in the handler.** The pointer handler converts a tap into a
+  pitch/velocity/duration and the nearest voice, then enqueues a `PlayNote` command — the *mapping*
+  (which reads voice positions) is local; the *effect* still flows through the queue.
 
-## Patterns To Adopt
+## Future Directions
 
-Patterns used in sibling projects (notably [pongo](https://github.com/tre-systems/pongo)) or simply
-worth adding here.
+Patterns worth extending (see [`TODO.md`](TODO.md) for the full backlog):
 
-- **Strongly-typed domain newtypes.** pongo names a side with `PlayerId(u8)`; geno-1 passes raw `usize`
-  voice indices, `i32` MIDI, and `f32` cents/BPM/Hz. Newtypes (`MidiNote`, `Cents`, `Bpm`, `Hz`,
-  `VoiceIndex`) would prevent unit mix-ups and document ranges at the type level. **Top gap.**
-- **A runtime `Config` tier.** pongo seeds a cloneable `Config` from `const Params`; geno-1 has only the
-  const tier ([`constants.rs`](../src/constants.rs)). A runtime config would enable presets and live
-  tuning without rebuilds.
-- **A unified input queue.** Funnel all input (keyboard, pointer, future MIDI/touch) through one queue
-  the frame loop drains — generalizing the ripple slot and removing direct engine mutation from closures.
-- **Named, ordered frame systems.** `FrameContext::frame()` already delegates to helpers
-  (`smooth_pulses`, `update_swirl`, `apply_global_fx_swirl`, …); making the pipeline an explicit ordered
-  list (pulses → swirl → FX → spatialize → analyser → camera → render) would make the ordering a
-  documented contract, like pongo's `step`.
-- **Audio-node lifecycle / pooling.** Per-note `OscillatorNode` + `GainNode` are created and left for
-  GC; a small pool / polyphony cap with explicit disconnect would bound allocation.
+- Extend `Config` to the remaining tuning groups (sends, pulse, analyser, render strength) and add a
+  preset/serialization layer on top of it.
+- Capture/restore engine + RNG state for deterministic session replay.
+- Route future input sources (touch, MIDI) through `InputCommand` rather than new listeners.
 
 ## Codebase Map
 
 | Module | Path | Role | Host-testable |
 | --- | --- | --- | --- |
-| **core** | [`src/core/`](../src/core/) | Generative engine: voices, scales, seeded scheduling. The heart. | ✅ |
+| **core** | [`src/core/`](../src/core/) | Generative engine, scales, seeded scheduling, and domain units (`units.rs`). The heart. | ✅ |
 | **input** | [`src/input.rs`](../src/input.rs) | Pure picking math (`ray_sphere`, nearest-by-UV) + pointer state. | ✅ |
-| **events** | [`src/events/`](../src/events/) | `keymap` (pure tables, tested) + `keyboard`/`pointer` (wasm handlers). | partial |
-| **audio** | [`src/audio.rs`](../src/audio.rs) | Web Audio graph construction and per-voice routing. | wasm-only |
+| **events** | [`src/events/`](../src/events/) | `keymap` + `command` (pure, tested) and `keyboard`/`pointer` (thin wasm handlers that enqueue commands). | partial |
+| **audio** | [`src/audio.rs`](../src/audio.rs) | Web Audio graph construction, per-voice routing, and one-shot note nodes. | wasm-only |
 | **render** | [`src/render.rs`](../src/render.rs), [`src/render/`](../src/render/) | WebGPU pipelines: waves, bloom, post, targets. | wasm-only |
-| **frame** | [`src/frame.rs`](../src/frame.rs) | RAF loop, swirl physics, FX modulation, spatialization, render. | wasm-only |
-| **wasm_app** | [`src/wasm_app.rs`](../src/wasm_app.rs) | `#[wasm_bindgen(start)]` entry; builds the graph, starts the loop. | wasm-only |
-| **constants** | [`src/constants.rs`](../src/constants.rs) | Centralized runtime tuning values. | wasm-only |
+| **frame** | [`src/frame.rs`](../src/frame.rs) | RAF loop, ordered per-frame systems, command application, note pool. | wasm-only |
+| **wasm_app** | [`src/wasm_app.rs`](../src/wasm_app.rs) | `#[wasm_bindgen(start)]` entry; builds the graph, wires input, starts the loop. | wasm-only |
+| **constants** | [`src/constants.rs`](../src/constants.rs) | Tuning constants and the runtime `Config`. | wasm-only |
 | **dom / overlay / camera** | [`src/`](../src/) | Canvas sizing, hint/help overlay, view math. | mixed |

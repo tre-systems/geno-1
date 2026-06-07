@@ -1,7 +1,7 @@
 # Geno-1 Backlog
 
 Forward-looking work, roughly in priority order. Current behaviour and architecture are described in
-[`SPEC.md`](SPEC.md).
+[`SPEC.md`](SPEC.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## In-scene controls
 
@@ -22,12 +22,12 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
   voices vary previous sequences; gradual key modulation between related keys.
 - Just Intonation pentatonic to complete the tuning set.
 - AudioWorklet path for sample-accurate timing.
-- Cap polyphony / pool oscillators and audit Web Audio node lifetimes.
 
 ## Architecture & types
 
-- Introduce domain newtypes (`MidiNote`, `Frequency`, `Cents`, `BPM`) with range validation.
-- Separate RNG state from engine state to allow deterministic replay.
+- Extend the runtime `Config` tier to the remaining tuning groups (sends, pulse, analyser, render
+  strength) and add a preset/serialization layer on top of it.
+- Capture/restore engine + RNG state for deterministic session replay.
 - Extract initialisation and WebGPU pipeline builders into focused submodules.
 - Add rustdoc with examples for the public API surface.
 
@@ -48,21 +48,8 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
 ## Testing & docs
 
 - Verify cent-level accuracy across all tuning systems.
-- Extend the headless test to change tempo and assert the hint reflects the new BPM, and to assert a
-  voice click toggles its mute state in the hint.
+- Extend the headless test to change tempo and assert the hint reflects the new BPM.
 - Cross-browser WebGPU checks (Chrome / Edge, and Firefox once supported).
-
-## Pattern consistency
-
-Converge these toward the patterns in [`ARCHITECTURE.md`](ARCHITECTURE.md):
-
-- Route the `T` key (random root + mode) through a seeded `MusicEngine` method instead of
-  `js_sys::Math::random()`, so it is deterministic and host-testable.
-- Reuse one note-trigger path: have the scheduled-note loop call `audio::trigger_one_shot` rather than
-  inlining a second oscillator+envelope block.
-- Funnel all input through a single queue the frame loop drains (generalize the ripple slot), and fold
-  the `H`-only keydown listener into the main dispatch.
-- Add a runtime `Config` tier seeded from `constants.rs` for presets and live tuning.
 
 ## Maintenance
 
