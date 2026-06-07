@@ -1,6 +1,6 @@
 use crate::audio;
 use crate::constants::*;
-use crate::core::{Bpm, MusicEngine, VoiceIndex, C_MAJOR_PENTATONIC};
+use crate::core::{Bpm, MusicEngine, NoteEvent, VoiceIndex, C_MAJOR_PENTATONIC};
 use crate::events::InputCommand;
 use crate::input;
 use crate::overlay;
@@ -9,6 +9,7 @@ use glam::Vec3;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
+use std::time::Duration;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys as web;
@@ -64,158 +65,167 @@ impl<'a> FrameContext<'a> {
         self.last_instant = now;
         let dt_sec = dt.as_secs_f32();
 
+        // Ordered per-frame systems.
         self.apply_input_commands();
+        let note_events = self.advance_music(dt);
+        self.update_pulses(&note_events, dt_sec);
+        self.update_swirl_and_fx(dt_sec);
+        self.update_spatial_audio();
+        self.update_ambient();
+        self.render_scene(dt_sec);
+        self.trigger_scheduled_notes(&note_events);
+    }
 
+    /// Advance the music engine and return the notes scheduled this frame.
+    fn advance_music(&mut self, dt: Duration) -> Vec<NoteEvent> {
         let mut note_events = Vec::new();
         if !*self.paused.borrow() {
             self.engine.borrow_mut().tick(dt, &mut note_events);
         }
+        note_events
+    }
 
-        {
-            let pulses_copy: Vec<f32> = {
+    /// Accumulate per-voice pulse energy from new notes, then smooth the visual pulses.
+    fn update_pulses(&mut self, note_events: &[NoteEvent], dt_sec: f32) {
+        let mut pulses_ref = self.pulses.borrow_mut();
+        let n = pulses_ref.len().min(3);
+        for ev in note_events {
+            if ev.voice.0 < n {
+                self.pulse_energy[ev.voice.0] =
+                    (self.pulse_energy[ev.voice.0] + ev.velocity as f32).min(PULSE_ENERGY_MAX);
+            }
+        }
+        smooth_pulses(&mut pulses_ref, &mut self.pulse_energy, dt_sec);
+    }
+
+    /// Update the inertial swirl from pointer input and modulate global FX from it.
+    fn update_swirl_and_fx(&mut self, dt_sec: f32) {
+        let (uv, mouse_down) = {
+            let ms = self.mouse.borrow();
+            (input::mouse_uv(&self.canvas, &ms), ms.down)
+        };
+        self.update_swirl(uv, dt_sec, mouse_down);
+        apply_global_fx_swirl(
+            &self.reverb_wet,
+            &self.delay_wet,
+            &self.delay_feedback,
+            &self.sat_pre,
+            &self.sat_wet,
+            &self.sat_dry,
+            self.swirl_energy,
+            uv,
+        );
+    }
+
+    /// Position each voice's panner and set its distance-based reverb/delay sends.
+    fn update_spatial_audio(&mut self) {
+        let voice_positions: Vec<Vec3> = {
+            let eng = self.engine.borrow();
+            eng.voices.iter().map(|v| v.position).collect()
+        };
+        for i in 0..self.voice_panners.len() {
+            let pos = voice_positions[i];
+            self.voice_panners[i].position_x().set_value(pos.x as f32);
+            self.voice_panners[i].position_y().set_value(pos.y as f32);
+            self.voice_panners[i].position_z().set_value(pos.z as f32);
+            let dist = (pos.x * pos.x + pos.z * pos.z).sqrt();
+            let mut d_amt = (D_SEND_BASE + D_SEND_SPAN * pos.x.abs().min(1.0)).clamp(0.0, 1.0);
+            let mut r_amt = (R_SEND_BASE
+                + R_SEND_SPAN * (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0))
+            .clamp(0.0, R_SEND_CLAMP_MAX);
+            let boost = 1.0 + SEND_BOOST_COEFF * self.swirl_energy;
+            d_amt = (d_amt * boost).clamp(0.0, D_SEND_CLAMP_MAX);
+            r_amt = (r_amt * boost).clamp(0.0, R_SEND_CLAMP_MAX);
+            self.delay_sends[i].gain().set_value(d_amt);
+            self.reverb_sends[i].gain().set_value(r_amt);
+            let lvl = (LEVEL_BASE + LEVEL_SPAN * (1.0 - (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0)))
+                as f32;
+            self.voice_gains[i].gain().set_value(lvl);
+        }
+    }
+
+    /// Feed analyser energy into the visual pulses and the background clear amount.
+    fn update_ambient(&mut self) {
+        if let Some(a) = &self.analyser {
+            let bins = a.frequency_bin_count() as usize;
+            {
+                let mut buf = self.analyser_buf.borrow_mut();
+                if buf.len() != bins {
+                    buf.resize(bins, 0.0);
+                }
+                a.get_float_frequency_data(&mut buf);
+            }
+            let mut sum = 0.0f32;
+            let take = bins.min(ANALYSER_BINS_SAMPLED) as u32;
+            for i in 0..take {
+                let v = self.analyser_buf.borrow()[i as usize];
+                let lin = ((v + ANALYSER_DB_FLOOR) / ANALYSER_DB_FLOOR).clamp(0.0, 1.0);
+                sum += lin;
+            }
+            let avg = sum / take as f32;
+            {
                 let mut pulses_ref = self.pulses.borrow_mut();
                 let n = pulses_ref.len().min(3);
-                for ev in &note_events {
-                    if ev.voice.0 < n {
-                        self.pulse_energy[ev.voice.0] = (self.pulse_energy[ev.voice.0]
-                            + ev.velocity as f32)
-                            .min(PULSE_ENERGY_MAX);
-                    }
+                for i in 0..n {
+                    pulses_ref[i] = (pulses_ref[i] + avg * AMBIENT_PULSE_GAIN).min(PULSE_MAX);
                 }
-                smooth_pulses(&mut pulses_ref, &mut self.pulse_energy, dt_sec);
-                pulses_ref.clone()
-            }; // drop pulses_ref here
+            }
+            if let Some(g) = &mut self.gpu {
+                g.set_ambient_clear(avg * AMBIENT_CLEAR_SCALE);
+            }
+        }
+    }
 
-            // Swirl input and energy (no RefCell borrow active)
-            let ms = self.mouse.borrow();
-            let uv = input::mouse_uv(&self.canvas, &ms);
-            let mouse_down = ms.down;
-            drop(ms);
-            self.update_swirl(uv, dt_sec, mouse_down);
+    /// Sync the audio listener to the camera and render the scene (no-op without WebGPU).
+    fn render_scene(&mut self, dt_sec: f32) {
+        let cam_eye = Vec3::new(0.0, 0.0, CAMERA_Z);
+        let cam_target = Vec3::ZERO;
+        update_listener_to_camera(&self.listener, cam_eye, cam_target);
 
-            // Global FX modulation
-            apply_global_fx_swirl(
-                &self.reverb_wet,
-                &self.delay_wet,
-                &self.delay_feedback,
-                &self.sat_pre,
-                &self.sat_wet,
-                &self.sat_dry,
-                self.swirl_energy,
-                uv,
-            );
-
-            // Per-voice audio positioning and sends
-            let voice_positions_snapshot: Vec<Vec3> = {
+        if let Some(g) = &mut self.gpu {
+            g.set_camera(cam_eye, cam_target);
+            if let Some(uvr) = self.pending_ripple.take() {
+                g.set_ripple(uvr, 1.0);
+            }
+            let speed_norm = (self.swirl_vel[0] * self.swirl_vel[0]
+                + self.swirl_vel[1] * self.swirl_vel[1])
+                .sqrt()
+                .clamp(0.0, 1.0);
+            let strength = SWIRL_RENDER_STRENGTH_BASE
+                + SWIRL_RENDER_STRENGTH_ENERGY * self.swirl_energy
+                + SWIRL_RENDER_STRENGTH_SPEED * speed_norm;
+            g.set_swirl(self.swirl_pos, strength, true);
+            let w = self.canvas.width();
+            let h = self.canvas.height();
+            g.resize_if_needed(w, h);
+            let voice_positions: Vec<Vec3> = {
                 let eng = self.engine.borrow();
                 eng.voices.iter().map(|v| v.position).collect()
             };
-            for i in 0..self.voice_panners.len() {
-                let pos = voice_positions_snapshot[i];
-                self.voice_panners[i].position_x().set_value(pos.x as f32);
-                self.voice_panners[i].position_y().set_value(pos.y as f32);
-                self.voice_panners[i].position_z().set_value(pos.z as f32);
-                let dist = (pos.x * pos.x + pos.z * pos.z).sqrt();
-                let mut d_amt = (D_SEND_BASE + D_SEND_SPAN * pos.x.abs().min(1.0)).clamp(0.0, 1.0);
-                let mut r_amt = (R_SEND_BASE
-                    + R_SEND_SPAN * (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0))
-                .clamp(0.0, R_SEND_CLAMP_MAX);
-                let boost = 1.0 + SEND_BOOST_COEFF * self.swirl_energy;
-                d_amt = (d_amt * boost).clamp(0.0, D_SEND_CLAMP_MAX);
-                r_amt = (r_amt * boost).clamp(0.0, R_SEND_CLAMP_MAX);
-                self.delay_sends[i].gain().set_value(d_amt);
-                self.reverb_sends[i].gain().set_value(r_amt);
-                let lvl = (LEVEL_BASE
-                    + LEVEL_SPAN * (1.0 - (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0)))
-                    as f32;
-                self.voice_gains[i].gain().set_value(lvl);
-            }
-
-            // Optional analyser-driven ambient energy
-            if let Some(a) = &self.analyser {
-                let bins = a.frequency_bin_count() as usize;
-                {
-                    let mut buf = self.analyser_buf.borrow_mut();
-                    if buf.len() != bins {
-                        buf.resize(bins, 0.0);
-                    }
-                    a.get_float_frequency_data(&mut buf);
-                }
-                let mut sum = 0.0f32;
-                let take = (bins.min(ANALYSER_BINS_SAMPLED)) as u32;
-                for i in 0..take {
-                    let v = self.analyser_buf.borrow()[i as usize];
-                    let lin = ((v + ANALYSER_DB_FLOOR) / ANALYSER_DB_FLOOR).clamp(0.0, 1.0);
-                    sum += lin;
-                }
-                let avg = sum / take as f32;
-                let n = pulses_copy.len().min(3);
-                {
-                    // update both self.pulses and local copy
-                    let mut pulses_ref = self.pulses.borrow_mut();
-                    for i in 0..n {
-                        pulses_ref[i] = (pulses_ref[i] + avg * AMBIENT_PULSE_GAIN).min(PULSE_MAX);
-                    }
-                }
-                if let Some(g) = &mut self.gpu {
-                    g.set_ambient_clear(avg * AMBIENT_CLEAR_SCALE);
-                }
-            }
-
-            // Voice positions are now only used for audio spatialization and wave displacement
-
-            // Camera + listener
-            let cam_eye = Vec3::new(0.0, 0.0, CAMERA_Z);
-            let cam_target = Vec3::ZERO;
-            update_listener_to_camera(&self.listener, cam_eye, cam_target);
-
-            if let Some(g) = &mut self.gpu {
-                g.set_camera(cam_eye, cam_target);
-                if let Some(uvr) = self.pending_ripple.take() {
-                    g.set_ripple(uvr, 1.0);
-                }
-                let speed_norm = ((self.swirl_vel[0] * self.swirl_vel[0]
-                    + self.swirl_vel[1] * self.swirl_vel[1])
-                    .sqrt()
-                    / 1.0)
-                    .clamp(0.0, 1.0);
-                let strength = SWIRL_RENDER_STRENGTH_BASE
-                    + SWIRL_RENDER_STRENGTH_ENERGY * self.swirl_energy
-                    + SWIRL_RENDER_STRENGTH_SPEED * speed_norm;
-                g.set_swirl(self.swirl_pos, strength, true);
-                let w = self.canvas.width();
-                let h = self.canvas.height();
-                g.resize_if_needed(w, h);
-                // Get current voice positions and pulse energy for rendering
-                let voice_positions: Vec<Vec3> = {
-                    let engine_ref = self.engine.borrow();
-                    engine_ref.voices.iter().map(|v| v.position).collect()
-                };
-                let pulse_energy_snapshot: Vec<f32> = {
-                    let pulses_ref = self.pulses.borrow();
-                    pulses_ref.clone()
-                };
-
-                if let Err(e) = g.render(dt_sec, &voice_positions, &pulse_energy_snapshot) {
-                    log::error!("render error: {:?}", e);
-                }
+            let pulse_energy_snapshot: Vec<f32> = self.pulses.borrow().clone();
+            if let Err(e) = g.render(dt_sec, &voice_positions, &pulse_energy_snapshot) {
+                log::error!("render error: {:?}", e);
             }
         }
+    }
 
-        if !*self.paused.borrow() {
-            for ev in &note_events {
-                let waveform = self.engine.borrow().configs[ev.voice.0].waveform;
-                audio::trigger_one_shot(
-                    &self.audio_ctx,
-                    waveform,
-                    ev.freq,
-                    ev.velocity,
-                    ev.duration_sec as f64,
-                    &self.voice_gains[ev.voice.0],
-                    &self.delay_sends[ev.voice.0],
-                    &self.reverb_sends[ev.voice.0],
-                );
-            }
+    /// Synthesise the notes scheduled this frame (deferred so the render runs first).
+    fn trigger_scheduled_notes(&self, note_events: &[NoteEvent]) {
+        if *self.paused.borrow() {
+            return;
+        }
+        for ev in note_events {
+            let waveform = self.engine.borrow().configs[ev.voice.0].waveform;
+            audio::trigger_one_shot(
+                &self.audio_ctx,
+                waveform,
+                ev.freq,
+                ev.velocity,
+                ev.duration_sec as f64,
+                &self.voice_gains[ev.voice.0],
+                &self.delay_sends[ev.voice.0],
+                &self.reverb_sends[ev.voice.0],
+            );
         }
     }
 }
