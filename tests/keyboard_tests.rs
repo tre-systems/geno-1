@@ -4,17 +4,20 @@ use app_web::events::keymap::{mode_scale_for_digit, root_midi_for_key};
 #[test]
 fn root_midi_for_key_valid_keys() {
     let cases = [
-        ("a", 69),
-        ("b", 71),
-        ("c", 60),
-        ("d", 62),
-        ("e", 64),
-        ("f", 65),
-        ("g", 67),
+        ("a", 69.0),
+        ("b", 71.0),
+        ("c", 60.0),
+        ("d", 62.0),
+        ("e", 64.0),
+        ("f", 65.0),
+        ("g", 67.0),
     ];
     for (key, midi) in cases {
-        assert_eq!(root_midi_for_key(key), Some(midi));
-        assert_eq!(root_midi_for_key(&key.to_ascii_uppercase()), Some(midi));
+        assert_eq!(root_midi_for_key(key), Some(core::MidiNote(midi)));
+        assert_eq!(
+            root_midi_for_key(&key.to_ascii_uppercase()),
+            Some(core::MidiNote(midi))
+        );
     }
 }
 

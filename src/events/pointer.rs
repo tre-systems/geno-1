@@ -3,7 +3,7 @@ use crate::constants::{
     CAMERA_Z, CLICK_DUR_BASE_SEC, CLICK_DUR_SPAN_SEC, CLICK_NOTE_BASE_MIDI, CLICK_NOTE_MIDI_SPAN,
     CLICK_VEL_BASE, CLICK_VEL_SPAN, ENGINE_DRAG_MAX_RADIUS, PICK_SPHERE_RADIUS, SPREAD, Z_OFFSET,
 };
-use crate::core::{midi_to_hz, MusicEngine};
+use crate::core::{MidiNote, MusicEngine, VoiceIndex};
 use crate::input;
 use crate::render;
 use std::cell::RefCell;
@@ -85,7 +85,10 @@ fn wire_pointermove(w: &InputWiring) {
 
                     let vi = w.drag_state.borrow().voice;
                     let mut eng = w.engine.borrow_mut();
-                    eng.set_voice_position(vi, glam::Vec3::new(eng_pos.x, 0.0, eng_pos.z));
+                    eng.set_voice_position(
+                        VoiceIndex(vi),
+                        glam::Vec3::new(eng_pos.x, 0.0, eng_pos.z),
+                    );
                 }
             }
         } else {
@@ -140,20 +143,19 @@ fn wire_pointerup(w: &InputWiring) {
             let shift = ev.shift_key();
             let alt = ev.alt_key();
             if alt {
-                w.engine.borrow_mut().toggle_solo(i);
+                w.engine.borrow_mut().toggle_solo(VoiceIndex(i));
                 log::info!("[click] solo voice {}", i);
             } else if shift {
-                w.engine.borrow_mut().reseed_voice(i, None);
+                w.engine.borrow_mut().reseed_voice(VoiceIndex(i), None);
                 log::info!("[click] reseed voice {}", i);
             } else {
-                w.engine.borrow_mut().toggle_mute(i);
+                w.engine.borrow_mut().toggle_mute(VoiceIndex(i));
                 log::info!("[click] toggle mute voice {}", i);
             }
         } else {
             let [uvx, uvy] = input::pointer_canvas_uv(&ev, &w.canvas);
             if uvx.is_finite() && uvy.is_finite() {
-                let midi = CLICK_NOTE_BASE_MIDI + uvx * CLICK_NOTE_MIDI_SPAN;
-                let freq = midi_to_hz(midi);
+                let freq = MidiNote(CLICK_NOTE_BASE_MIDI + uvx * CLICK_NOTE_MIDI_SPAN).to_hz();
                 let vel = CLICK_VEL_BASE + CLICK_VEL_SPAN * uvy;
                 let eng = w.engine.borrow();
                 let norm_xs: Vec<f32> = eng

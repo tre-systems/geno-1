@@ -1,7 +1,7 @@
 use crate::core::MusicEngine;
 use crate::core::{
-    AEOLIAN, C_MAJOR_PENTATONIC, DORIAN, IONIAN, LOCRIAN, LYDIAN, MIXOLYDIAN, PHRYGIAN,
-    TET19_PENTATONIC, TET24_PENTATONIC, TET31_PENTATONIC,
+    Bpm, Cents, MidiNote, VoiceIndex, AEOLIAN, C_MAJOR_PENTATONIC, DORIAN, IONIAN, LOCRIAN, LYDIAN,
+    MIXOLYDIAN, PHRYGIAN, TET19_PENTATONIC, TET24_PENTATONIC, TET31_PENTATONIC,
 };
 use crate::events::keymap::{mode_scale_for_digit, root_midi_for_key};
 use crate::overlay;
@@ -39,8 +39,8 @@ fn update_hint_after_change(engine: &Rc<RefCell<MusicEngine>>) {
             let (detune, bpm, scale_name) = {
                 let eng = engine.borrow();
                 (
-                    eng.params.detune_cents,
-                    eng.params.bpm,
+                    eng.params.detune.0,
+                    eng.params.bpm.0,
                     get_scale_name(eng.params.scale),
                 )
             };
@@ -59,7 +59,7 @@ pub fn handle_global_keydown(
 ) {
     let key = ev.key();
     if let Some(midi) = root_midi_for_key(&key) {
-        engine.borrow_mut().params.root_midi = midi;
+        engine.borrow_mut().params.root = midi;
         update_hint_after_change(engine);
         return;
     }
@@ -78,7 +78,7 @@ pub fn handle_global_keydown(
             let voice_len = engine.borrow().voices.len();
             let mut eng = engine.borrow_mut();
             for i in 0..voice_len {
-                eng.reseed_voice(i, None);
+                eng.reseed_voice(VoiceIndex(i), None);
             }
             log::info!("[keys] reseeded all voices");
         }
@@ -90,7 +90,7 @@ pub fn handle_global_keydown(
             let ri = (js_sys::Math::random() * roots.len() as f64).floor() as usize;
             let mi = (js_sys::Math::random() * modes.len() as f64).floor() as usize;
             let mut eng = engine.borrow_mut();
-            eng.params.root_midi = roots[ri];
+            eng.params.root = MidiNote(roots[ri] as f32);
             eng.params.scale = modes[mi];
             drop(eng);
             update_hint_after_change(engine);
@@ -103,15 +103,15 @@ pub fn handle_global_keydown(
         }
         "ArrowRight" | "+" | "=" => {
             let mut eng = engine.borrow_mut();
-            let new_bpm = (eng.params.bpm + 5.0).min(240.0);
-            eng.set_bpm(new_bpm);
+            let new_bpm = (eng.params.bpm.0 + 5.0).min(240.0);
+            eng.set_bpm(Bpm(new_bpm));
             drop(eng);
             update_hint_after_change(engine);
         }
         "ArrowLeft" | "-" | "_" => {
             let mut eng = engine.borrow_mut();
-            let new_bpm = (eng.params.bpm - 5.0).max(40.0);
-            eng.set_bpm(new_bpm);
+            let new_bpm = (eng.params.bpm.0 - 5.0).max(40.0);
+            eng.set_bpm(Bpm(new_bpm));
             drop(eng);
             update_hint_after_change(engine);
         }
@@ -134,9 +134,9 @@ pub fn handle_global_keydown(
         "," => {
             let mut eng = engine.borrow_mut();
             if ev.shift_key() {
-                eng.adjust_detune_cents(-10.0); // Fine adjustment
+                eng.adjust_detune_cents(Cents(-10.0)); // Fine adjustment
             } else {
-                eng.adjust_detune_cents(-50.0); // Coarse adjustment
+                eng.adjust_detune_cents(Cents(-50.0)); // Coarse adjustment
             }
             drop(eng);
             update_hint_after_change(engine);
@@ -144,9 +144,9 @@ pub fn handle_global_keydown(
         "." => {
             let mut eng = engine.borrow_mut();
             if ev.shift_key() {
-                eng.adjust_detune_cents(10.0); // Fine adjustment
+                eng.adjust_detune_cents(Cents(10.0)); // Fine adjustment
             } else {
-                eng.adjust_detune_cents(50.0); // Coarse adjustment
+                eng.adjust_detune_cents(Cents(50.0)); // Coarse adjustment
             }
             drop(eng);
             update_hint_after_change(engine);

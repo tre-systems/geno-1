@@ -1,3 +1,4 @@
+use super::units::{Bpm, Cents, Hz, MidiNote, VoiceIndex};
 use glam::Vec3;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
@@ -32,15 +33,14 @@ pub struct VoiceConfig {
 /// A scheduled musical event produced by the engine for playback.
 ///
 /// Fields:
-/// - `voice_index`: which voice this event belongs to (index into `voices`)
-/// - `frequency_hz`: target pitch in Hertz (already converted from MIDI)
+/// - `voice`: which voice this event belongs to (index into `voices`)
+/// - `freq`: target pitch in Hertz (already converted from MIDI)
 /// - `velocity`: normalized loudness 0..1 (mapped to gain envelope)
-/// - `start_time_sec`: absolute start time (AudioContext time) in seconds
 /// - `duration_sec`: nominal duration in seconds (envelope length)
 #[derive(Clone, Debug, Default)]
 pub struct NoteEvent {
-    pub voice_index: usize,
-    pub frequency_hz: f32,
+    pub voice: VoiceIndex,
+    pub freq: Hz,
     pub velocity: f32,
     pub duration_sec: f32,
 }
@@ -56,23 +56,23 @@ pub struct VoiceState {
 ///
 /// - `bpm` controls the tempo of the scheduler (beats per minute)
 /// - `scale` is the allowed pitch degree set, expressed as semitone offsets
-/// - `root_midi` is the MIDI note number of the tonal center (e.g., 60 for C4)
-/// - `detune_cents` is the global detune offset in cents (-200 to +200)
+/// - `root` is the MIDI note of the tonal center (e.g., 60 for C4)
+/// - `detune` is the global detune offset in cents (-200 to +200)
 #[derive(Clone, Debug)]
 pub struct EngineParams {
-    pub bpm: f32,
+    pub bpm: Bpm,
     pub scale: &'static [f32],
-    pub root_midi: i32,
-    pub detune_cents: f32,
+    pub root: MidiNote,
+    pub detune: Cents,
 }
 
 impl Default for EngineParams {
     fn default() -> Self {
         Self {
-            bpm: 110.0,
+            bpm: Bpm(110.0),
             scale: C_MAJOR_PENTATONIC,
-            root_midi: 60, // Middle C
-            detune_cents: 0.0,
+            root: MidiNote(60.0), // Middle C
+            detune: Cents(0.0),
         }
     }
 }
@@ -145,57 +145,56 @@ impl MusicEngine {
     }
 
     /// Set beats-per-minute for the internal scheduler.
-    pub fn set_bpm(&mut self, bpm: f32) {
-        if !bpm.is_finite() {
+    pub fn set_bpm(&mut self, bpm: Bpm) {
+        if !bpm.0.is_finite() {
             return;
         }
-        self.params.bpm = bpm.clamp(1.0, 400.0);
+        self.params.bpm = bpm.clamped();
     }
 
     /// Set the global detune offset in cents.
     /// Range: -200 to +200 cents (±2 semitones)
-    pub fn set_detune_cents(&mut self, detune_cents: f32) {
-        self.params.detune_cents = detune_cents.clamp(-200.0, 200.0);
+    pub fn set_detune_cents(&mut self, detune: Cents) {
+        self.params.detune = detune.clamped();
     }
 
     /// Adjust the global detune offset by the specified amount in cents.
     /// The result is clamped to the valid range of -200 to +200 cents.
-    pub fn adjust_detune_cents(&mut self, delta_cents: f32) {
-        let new_detune = self.params.detune_cents + delta_cents;
-        self.set_detune_cents(new_detune);
+    pub fn adjust_detune_cents(&mut self, delta: Cents) {
+        self.set_detune_cents(Cents(self.params.detune.0 + delta.0));
     }
 
     /// Reset the global detune offset to 0 cents (no detune).
     pub fn reset_detune(&mut self) {
-        self.params.detune_cents = 0.0;
+        self.params.detune = Cents(0.0);
     }
 
     /// Toggle mute flag for a voice.
-    pub fn toggle_mute(&mut self, voice_index: usize) {
-        if let Some(v) = self.voices.get_mut(voice_index) {
+    pub fn toggle_mute(&mut self, voice: VoiceIndex) {
+        if let Some(v) = self.voices.get_mut(voice.0) {
             v.muted = !v.muted;
         }
     }
 
     /// Update the engine-space position of a voice.
-    pub fn set_voice_position(&mut self, voice_index: usize, pos: Vec3) {
-        if let Some(v) = self.voices.get_mut(voice_index) {
+    pub fn set_voice_position(&mut self, voice: VoiceIndex, pos: Vec3) {
+        if let Some(v) = self.voices.get_mut(voice.0) {
             v.position = pos;
         }
     }
 
     /// Reseed the per-voice RNG. If `seed` is None, a new random seed is chosen.
-    pub fn reseed_voice(&mut self, voice_index: usize, seed: Option<u64>) {
-        if let Some(r) = self.rngs.get_mut(voice_index) {
+    pub fn reseed_voice(&mut self, voice: VoiceIndex, seed: Option<u64>) {
+        if let Some(r) = self.rngs.get_mut(voice.0) {
             let new_seed = seed.unwrap_or_else(|| r.gen());
             *r = StdRng::seed_from_u64(new_seed);
         }
     }
 
     /// Solo a voice. Toggling solo on the same voice clears solo mode.
-    pub fn toggle_solo(&mut self, voice_index: usize) {
+    pub fn toggle_solo(&mut self, voice: VoiceIndex) {
         match self.solo_index {
-            Some(idx) if idx == voice_index => {
+            Some(idx) if idx == voice.0 => {
                 // Clear solo -> unmute all
                 self.solo_index = None;
                 for v in &mut self.voices {
@@ -203,9 +202,9 @@ impl MusicEngine {
                 }
             }
             _ => {
-                self.solo_index = Some(voice_index);
+                self.solo_index = Some(voice.0);
                 for (i, v) in self.voices.iter_mut().enumerate() {
-                    v.muted = i != voice_index;
+                    v.muted = i != voice.0;
                 }
             }
         }
@@ -213,11 +212,11 @@ impl MusicEngine {
 
     /// Advance the scheduler by `dt`, pushing any newly scheduled `NoteEvent`s into `out_events`.
     pub fn tick(&mut self, dt: Duration, out_events: &mut Vec<NoteEvent>) {
-        let bpm = self.params.bpm as f64;
-        if !bpm.is_finite() || bpm <= 0.0 {
+        let bpm = self.params.bpm;
+        if !bpm.is_valid() {
             return;
         }
-        let step = (60.0 / bpm) / 2.0;
+        let step = bpm.eighth_step_seconds();
         if !step.is_finite() || step <= 0.0 {
             return;
         }
@@ -240,13 +239,13 @@ impl MusicEngine {
             if rng.gen::<f32>() < prob {
                 let degree = *self.params.scale.choose(rng).unwrap_or(&0.0);
                 let octave = self.configs[i].octave_offset;
-                let midi = self.params.root_midi as f32 + degree + (octave * 12) as f32;
-                let freq = midi_to_hz_with_detune(midi, self.params.detune_cents);
+                let note = self.params.root.shifted(degree + (octave * 12) as f32);
+                let freq = note.to_hz_detuned(self.params.detune);
                 let vel = 0.4 + rng.gen::<f32>() * 0.6;
                 let dur = self.configs[i].base_duration + rng.gen::<f32>() * 0.2;
                 out_events.push(NoteEvent {
-                    voice_index: i,
-                    frequency_hz: freq,
+                    voice: VoiceIndex(i),
+                    freq,
                     velocity: vel,
                     duration_sec: dur,
                 });
@@ -260,7 +259,7 @@ impl MusicEngine {
 /// Monotonic and exhibits octave symmetry: +12 semitones doubles the frequency.
 /// Supports fractional MIDI values for microtonal precision.
 pub fn midi_to_hz(midi: f32) -> f32 {
-    440.0 * (2.0_f32).powf((midi - 69.0) / 12.0)
+    MidiNote(midi).to_hz().0
 }
 
 /// Convert a MIDI note number to Hertz with detune offset in cents.
@@ -270,8 +269,5 @@ pub fn midi_to_hz(midi: f32) -> f32 {
 /// - Negative values lower the pitch (e.g., -50¢ = quarter tone flat)
 /// - Range: -200 to +200 cents (±2 semitones)
 pub fn midi_to_hz_with_detune(midi: f32, detune_cents: f32) -> f32 {
-    let clamped_detune = detune_cents.clamp(-200.0, 200.0);
-    let detune_semitones = clamped_detune / 100.0;
-    let adjusted_midi = midi + detune_semitones;
-    midi_to_hz(adjusted_midi)
+    MidiNote(midi).to_hz_detuned(Cents(detune_cents)).0
 }
