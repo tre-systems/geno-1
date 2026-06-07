@@ -110,3 +110,19 @@ fn alternate_tuning_scales_are_well_formed() {
         }
     }
 }
+
+#[test]
+fn alternate_tunings_are_pairwise_distinct() {
+    // Each N-TET pentatonic must yield distinct pitches so all three are audible and
+    // every overlay::scale_name arm (which matches by slice value) stays reachable.
+    let tunings = [
+        core::TET19_PENTATONIC,
+        core::TET24_PENTATONIC,
+        core::TET31_PENTATONIC,
+    ];
+    for (i, a) in tunings.iter().enumerate() {
+        for b in &tunings[i + 1..] {
+            assert_ne!(a, b, "alternate tunings must not share pitches");
+        }
+    }
+}

@@ -82,10 +82,34 @@ pub const MIXOLYDIAN: &[f32] = &[0.0, 2.0, 4.0, 5.0, 7.0, 9.0, 10.0, 12.0];
 pub const AEOLIAN: &[f32] = &[0.0, 2.0, 3.0, 5.0, 7.0, 8.0, 10.0, 12.0]; // natural minor
 pub const LOCRIAN: &[f32] = &[0.0, 1.0, 3.0, 5.0, 6.0, 8.0, 10.0, 12.0];
 
-/// Alternative tuning systems (pentatonic variants)
-pub const TET19_PENTATONIC: &[f32] = &[0.0, 2.4, 4.8, 7.2, 9.6, 12.0];
-pub const TET24_PENTATONIC: &[f32] = &[0.0, 2.5, 5.0, 7.5, 10.0, 12.0];
-pub const TET31_PENTATONIC: &[f32] = &[0.0, 2.4, 4.8, 7.2, 9.6, 12.0];
+/// Equal pentatonics snapped to alternative equal-temperament grids. The octave (12
+/// semitones) splits into N equal steps; each scale stacks the step closest to a fifth
+/// of an octave (`round(N/5)` steps) four times, then closes on the octave. Degrees are
+/// exact multiples of `12/N`, so the three tunings are audibly distinct.
+pub const TET19_PENTATONIC: &[f32] = &[
+    0.0,
+    4.0 * 12.0 / 19.0,
+    8.0 * 12.0 / 19.0,
+    12.0 * 12.0 / 19.0,
+    16.0 * 12.0 / 19.0,
+    12.0,
+];
+pub const TET24_PENTATONIC: &[f32] = &[
+    0.0,
+    5.0 * 12.0 / 24.0,
+    10.0 * 12.0 / 24.0,
+    15.0 * 12.0 / 24.0,
+    20.0 * 12.0 / 24.0,
+    12.0,
+];
+pub const TET31_PENTATONIC: &[f32] = &[
+    0.0,
+    6.0 * 12.0 / 31.0,
+    12.0 * 12.0 / 31.0,
+    18.0 * 12.0 / 31.0,
+    24.0 * 12.0 / 31.0,
+    12.0,
+];
 
 /// Root notes in musical order (C D E F G A B), used by random selection.
 pub const ROOTS_MUSICAL_ORDER: [MidiNote; 7] = [
