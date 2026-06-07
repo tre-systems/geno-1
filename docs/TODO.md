@@ -34,7 +34,7 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
   remaining tuning groups; until something varies it at runtime, it is indirection ahead of need.
 - Generalise beyond three hardcoded voices — the count is baked into the WGSL uniform (`[VoicePacked; 3]`)
   and the pulse arrays (`[f32; 3]`). Needs a dynamic uniform array + `Vec`-based pulses.
-- Decompose `FrameContext` (33 fields) into focused sub-states (audio, render, interaction) that systems
+- Decompose `FrameContext` (34 fields) into focused sub-states (audio, render, interaction) that systems
   borrow explicitly.
 - Capture/restore engine + RNG state for deterministic session replay.
 - Extract initialisation and WebGPU pipeline builders into focused submodules.

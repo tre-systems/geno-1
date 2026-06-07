@@ -54,7 +54,7 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   [`harmony_color`](../src/core/music.rs) (root + scale → scene colour),
   [`ray_sphere` / `nearest_index_by_uvx`](../src/input.rs), [`screen_to_world_ray`](../src/camera.rs),
   [`root_midi_for_key` / `mode_scale_for_digit`](../src/events/keymap.rs), and
-  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 38 host tests also include
+  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 39 host tests also include
   a golden snapshot of the engine's seeded note sequence and `naga` validation of the WGSL shaders.
 
 ### Input

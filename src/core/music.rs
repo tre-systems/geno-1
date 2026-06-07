@@ -339,3 +339,13 @@ pub fn harmony_color(root: MidiNote, scale: &[f32]) -> (f32, f32) {
     let warmth = (0.5 + (third - 3.5) * 0.35 + (mean - 6.0) * 0.15).clamp(0.0, 1.0);
     (hue_shift, warmth)
 }
+
+/// Normalise a frequency to `0.0..=1.0` over the instrument's working range (about MIDI
+/// 48..84), for mapping a note's pitch to visual brightness. Pure and host-testable.
+pub fn pitch_norm(hz: f32) -> f32 {
+    if hz <= 0.0 {
+        return 0.0;
+    }
+    let midi = 69.0 + 12.0 * (hz / 440.0).log2();
+    ((midi - 48.0) / 36.0).clamp(0.0, 1.0)
+}

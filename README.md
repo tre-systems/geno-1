@@ -32,7 +32,7 @@ reacts to the music and to pointer gestures. It is the foundational Geno instrum
 - WebGPU wave field: layered noise sheets with voice-reactive displacement, a pointer-driven swirl
   with inertial physics, and click ripples — with a palette that follows the current key and mode.
 - HDR post-processing: bright-pass bloom, separable blur, ACES tonemap, vignette, and film grain.
-- Host-tested core (38 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
+- Host-tested core (39 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
 
 ## Stack
 

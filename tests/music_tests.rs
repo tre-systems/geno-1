@@ -425,6 +425,20 @@ fn harmony_color_warmth_tracks_mode_brightness() {
 }
 
 #[test]
+fn pitch_norm_rises_with_pitch_and_clamps() {
+    let low = pitch_norm(midi_to_hz(48.0));
+    let mid = pitch_norm(midi_to_hz(66.0));
+    let high = pitch_norm(midi_to_hz(84.0));
+    assert!(low < mid && mid < high, "pitch_norm rises with pitch");
+    assert!((low - 0.0).abs() < 1e-6, "bottom of range maps to 0");
+    assert!((high - 1.0).abs() < 1e-6, "top of range maps to 1");
+    // Out-of-range and non-positive inputs stay clamped to [0,1].
+    assert_eq!(pitch_norm(midi_to_hz(120.0)), 1.0);
+    assert_eq!(pitch_norm(midi_to_hz(12.0)), 0.0);
+    assert_eq!(pitch_norm(0.0), 0.0);
+}
+
+#[test]
 fn engine_randomize_root_and_mode_is_seeded_and_in_range() {
     let mut e1 = make_engine();
     let mut e2 = make_engine();

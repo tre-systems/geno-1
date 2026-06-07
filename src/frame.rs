@@ -52,6 +52,7 @@ pub struct FrameContext<'a> {
     pub swirl_vel: [f32; 2],
     pub swirl_initialized: bool,
     pub pulse_energy: [f32; 3],
+    pub voice_pitch: [f32; 3],
     pub config: Config,
     pub active_notes: Rc<RefCell<Vec<audio::ActiveNote>>>,
     pub pending_pulses: PulseQueue,
@@ -79,13 +80,14 @@ impl<'a> FrameContext<'a> {
         let now = self.audio_ctx.current_time();
         {
             let mut pending = self.pending_pulses.borrow_mut();
-            while let Some(&(voice, at, velocity)) = pending.front() {
+            while let Some(&(voice, at, velocity, pitch)) = pending.front() {
                 if at > now {
                     break; // pending is ordered by scheduled time
                 }
                 if voice.0 < self.pulse_energy.len() {
                     self.pulse_energy[voice.0] =
                         (self.pulse_energy[voice.0] + velocity).min(PULSE_ENERGY_MAX);
+                    self.voice_pitch[voice.0] = pitch;
                 }
                 pending.pop_front();
             }
@@ -197,7 +199,20 @@ impl<'a> FrameContext<'a> {
                 eng.voices.iter().map(|v| v.position).collect()
             };
             let pulse_energy_snapshot: Vec<f32> = self.pulses.borrow().clone();
-            if let Err(e) = g.render(dt_sec, &voice_positions, &pulse_energy_snapshot) {
+            // A gentle raised-cosine swell that peaks on each beat at the current tempo,
+            // for a subtle visual "breath" synced to the music.
+            let breath = {
+                let bpm = self.engine.borrow().params.bpm.0.max(1.0) as f64;
+                let phase = (self.audio_ctx.current_time() / (60.0 / bpm)).fract();
+                (0.5 + 0.5 * (std::f64::consts::TAU * phase).cos()) as f32
+            };
+            if let Err(e) = g.render(
+                dt_sec,
+                &voice_positions,
+                &pulse_energy_snapshot,
+                &self.voice_pitch,
+                breath,
+            ) {
                 log::error!("render error: {:?}", e);
             }
         }

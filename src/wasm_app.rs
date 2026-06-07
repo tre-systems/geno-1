@@ -294,6 +294,7 @@ async fn init() -> anyhow::Result<()> {
                     swirl_vel: [0.0, 0.0],
                     swirl_initialized: false,
                     pulse_energy: [0.0, 0.0, 0.0],
+                    voice_pitch: [0.0, 0.0, 0.0],
                     config: constants::Config::default(),
                     active_notes: active_notes.clone(),
                     pending_pulses: pending_pulses.clone(),

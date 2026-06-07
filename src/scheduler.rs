@@ -11,9 +11,10 @@ const INTERVAL_MS: i32 = 25;
 const LOOKAHEAD_SEC: f64 = 0.15;
 const ANCHOR_OFFSET_SEC: f64 = 0.06;
 
-/// A pending visual pulse: which voice, at what AudioContext time, and its velocity.
-/// The frame loop fires these when their time arrives so visuals match the sound.
-pub type PulseQueue = Rc<RefCell<VecDeque<(VoiceIndex, f64, f32)>>>;
+/// A pending visual pulse: which voice, at what AudioContext time, its velocity, and the
+/// note's normalised pitch. The frame loop fires these when their time arrives so visuals
+/// match the sound.
+pub type PulseQueue = Rc<RefCell<VecDeque<(VoiceIndex, f64, f32, f32)>>>;
 
 /// Lookahead audio scheduler. Runs on a `setInterval` (off the render frame) and
 /// schedules eighth-note grid steps ahead on the AudioContext clock, so timing is
@@ -95,6 +96,7 @@ impl AudioScheduler {
                     ev.voice,
                     self.next_note_time,
                     ev.velocity,
+                    crate::core::pitch_norm(ev.freq.0),
                 ));
             }
             self.next_note_time += step_sec;
