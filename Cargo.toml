@@ -54,6 +54,10 @@ web-time = "1.1"
 rand = "0.8"
 getrandom = { version = "0.2", features = ["js"] }
 
+[dev-dependencies]
+# Host-side WGSL validation for the shaders (matches the naga version wgpu 24 uses).
+naga = { version = "24", features = ["wgsl-in"] }
+
 
 [profile.release]
 opt-level = "z"

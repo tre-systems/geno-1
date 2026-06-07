@@ -253,12 +253,14 @@ impl MusicEngine {
         while self.beat_accum >= step {
             // eighth notes grid
             self.beat_accum -= step;
-            self.schedule_step(out_events);
+            self.step(out_events);
         }
     }
 
-    /// Schedule a single grid step for all voices.
-    fn schedule_step(&mut self, out_events: &mut Vec<NoteEvent>) {
+    /// Advance one eighth-note grid step, pushing any triggered notes. This is the
+    /// per-step entry the audio scheduler drives directly on the audio clock; `tick`
+    /// calls it via its wall-clock accumulator (used by host tests).
+    pub fn step(&mut self, out_events: &mut Vec<NoteEvent>) {
         for (i, voice) in self.voices.iter().enumerate() {
             if voice.muted {
                 continue;

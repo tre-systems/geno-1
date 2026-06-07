@@ -29,6 +29,7 @@ dependencies = [
  "glam",
  "js-sys",
  "log",
+ "naga",
  "rand",
  "wasm-bindgen",
  "wasm-bindgen-futures",

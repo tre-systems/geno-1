@@ -360,6 +360,40 @@ fn detune_round_trip_accuracy() {
 }
 
 #[test]
+fn engine_step_sequence_is_a_stable_snapshot() {
+    // The engine is deterministic for a given seed; freeze the generated sequence so
+    // any accidental change to note generation is caught by the host tests.
+    let mut engine = make_engine(); // seed 42, default voices + C major pentatonic
+    let mut events = Vec::new();
+    for _ in 0..64 {
+        engine.step(&mut events);
+    }
+    let seq: Vec<(usize, u32)> = events
+        .iter()
+        .map(|e| (e.voice.0, e.freq.0.round() as u32))
+        .collect();
+    let head: Vec<(usize, u32)> = seq.iter().take(8).copied().collect();
+
+    // Golden for seed 42 over 64 grid steps (bootstrap value below).
+    assert_eq!(
+        head,
+        vec![
+            (0, 196),
+            (1, 440),
+            (2, 587),
+            (2, 659),
+            (1, 440),
+            (2, 1047),
+            (1, 440),
+            (2, 659),
+        ],
+        "engine note generation changed; len={} seq={seq:?}",
+        seq.len()
+    );
+    assert_eq!(seq.len(), 86, "engine event count changed: {}", seq.len());
+}
+
+#[test]
 fn engine_randomize_root_and_mode_is_seeded_and_in_range() {
     let mut e1 = make_engine();
     let mut e2 = make_engine();
