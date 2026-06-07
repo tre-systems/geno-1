@@ -97,3 +97,60 @@ pub const ANALYSER_BINS_SAMPLED: usize = 16; // low bins averaged for ambient en
 pub const ANALYSER_DB_FLOOR: f32 = 100.0; // dB floor for normalizing analyser output
 pub const AMBIENT_PULSE_GAIN: f32 = 0.05; // how much ambient energy lifts voice pulses
 pub const AMBIENT_CLEAR_SCALE: f32 = 0.9; // ambient energy -> background clear amount
+
+/// Runtime-tunable "feel" parameters for the interactive swirl and the global FX
+/// it drives. Seeded from the constants above via `Default`; held by the frame
+/// loop so presets or live tuning can vary it without a rebuild.
+#[derive(Clone, Debug)]
+pub struct Config {
+    // Inertial swirl physics.
+    pub swirl_omega: f32,
+    pub swirl_damping_ratio: f32,
+    pub swirl_max_step_per_sec: f32,
+    // Swirl energy response.
+    pub pointer_speed_max: f32,
+    pub swirl_target_weight_pointer: f32,
+    pub swirl_target_weight_velocity: f32,
+    pub swirl_target_click_bonus: f32,
+    pub swirl_energy_blend_alpha: f32,
+    // Global FX modulation driven by swirl energy.
+    pub fx_reverb_base: f32,
+    pub fx_reverb_span: f32,
+    pub fx_delay_wet_base: f32,
+    pub fx_delay_wet_swirl: f32,
+    pub fx_delay_wet_echo: f32,
+    pub fx_delay_fb_base: f32,
+    pub fx_delay_fb_swirl: f32,
+    pub fx_delay_fb_echo: f32,
+    pub fx_sat_drive_min: f32,
+    pub fx_sat_drive_max: f32,
+    pub fx_sat_wet_base: f32,
+    pub fx_sat_wet_span: f32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            swirl_omega: SWIRL_OMEGA,
+            swirl_damping_ratio: SWIRL_DAMPING_RATIO,
+            swirl_max_step_per_sec: SWIRL_MAX_STEP_PER_SEC,
+            pointer_speed_max: POINTER_SPEED_MAX,
+            swirl_target_weight_pointer: SWIRL_TARGET_WEIGHT_POINTER,
+            swirl_target_weight_velocity: SWIRL_TARGET_WEIGHT_VELOCITY,
+            swirl_target_click_bonus: SWIRL_TARGET_CLICK_BONUS,
+            swirl_energy_blend_alpha: SWIRL_ENERGY_BLEND_ALPHA,
+            fx_reverb_base: FX_REVERB_BASE,
+            fx_reverb_span: FX_REVERB_SPAN,
+            fx_delay_wet_base: FX_DELAY_WET_BASE,
+            fx_delay_wet_swirl: FX_DELAY_WET_SWIRL,
+            fx_delay_wet_echo: FX_DELAY_WET_ECHO,
+            fx_delay_fb_base: FX_DELAY_FB_BASE,
+            fx_delay_fb_swirl: FX_DELAY_FB_SWIRL,
+            fx_delay_fb_echo: FX_DELAY_FB_ECHO,
+            fx_sat_drive_min: FX_SAT_DRIVE_MIN,
+            fx_sat_drive_max: FX_SAT_DRIVE_MAX,
+            fx_sat_wet_base: FX_SAT_WET_BASE,
+            fx_sat_wet_span: FX_SAT_WET_SPAN,
+        }
+    }
+}

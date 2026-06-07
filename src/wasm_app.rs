@@ -1,7 +1,7 @@
 use crate::core::{
     Bpm, Cents, EngineParams, MidiNote, MusicEngine, VoiceConfig, Waveform, C_MAJOR_PENTATONIC,
 };
-use crate::{audio, dom, events, frame, input, overlay, render};
+use crate::{audio, constants, dom, events, frame, input, overlay, render};
 use glam::Vec3;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -292,6 +292,7 @@ async fn init() -> anyhow::Result<()> {
                     swirl_vel: [0.0, 0.0],
                     swirl_initialized: false,
                     pulse_energy: [0.0, 0.0, 0.0],
+                    config: constants::Config::default(),
                 }));
                 // Start RAF loop
                 frame::start_loop(frame_ctx);

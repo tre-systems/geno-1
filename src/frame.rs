@@ -56,6 +56,7 @@ pub struct FrameContext<'a> {
     pub swirl_vel: [f32; 2],
     pub swirl_initialized: bool,
     pub pulse_energy: [f32; 3],
+    pub config: Config,
 }
 
 impl<'a> FrameContext<'a> {
@@ -114,6 +115,7 @@ impl<'a> FrameContext<'a> {
             &self.sat_dry,
             self.swirl_energy,
             uv,
+            &self.config,
         );
     }
 
@@ -238,22 +240,24 @@ impl<'a> FrameContext<'a> {
             &mut self.swirl_vel,
             uv,
             dt_sec,
+            &self.config,
         );
         let du = uv[0] - self.prev_uv[0];
         let dv = uv[1] - self.prev_uv[1];
-        let pointer_speed = ((du * du + dv * dv).sqrt() / (dt_sec + 1e-5)).min(POINTER_SPEED_MAX);
+        let pointer_speed =
+            ((du * du + dv * dv).sqrt() / (dt_sec + 1e-5)).min(self.config.pointer_speed_max);
         let swirl_speed =
             (self.swirl_vel[0] * self.swirl_vel[0] + self.swirl_vel[1] * self.swirl_vel[1]).sqrt();
-        let target = ((pointer_speed * SWIRL_TARGET_WEIGHT_POINTER)
-            + (swirl_speed * SWIRL_TARGET_WEIGHT_VELOCITY)
+        let target = ((pointer_speed * self.config.swirl_target_weight_pointer)
+            + (swirl_speed * self.config.swirl_target_weight_velocity)
             + if mouse_down {
-                SWIRL_TARGET_CLICK_BONUS
+                self.config.swirl_target_click_bonus
             } else {
                 0.0
             })
         .clamp(0.0, 1.0);
-        self.swirl_energy = (1.0 - SWIRL_ENERGY_BLEND_ALPHA) * self.swirl_energy
-            + SWIRL_ENERGY_BLEND_ALPHA * target;
+        self.swirl_energy = (1.0 - self.config.swirl_energy_blend_alpha) * self.swirl_energy
+            + self.config.swirl_energy_blend_alpha * target;
         self.prev_uv = uv;
     }
 
@@ -464,6 +468,7 @@ fn step_inertial_swirl(
     swirl_vel: &mut [f32; 2],
     target_uv: [f32; 2],
     dt_sec: f32,
+    cfg: &Config,
 ) {
     if !*initialized {
         *swirl_pos = target_uv;
@@ -472,9 +477,9 @@ fn step_inertial_swirl(
         *initialized = true;
         return;
     }
-    let omega = SWIRL_OMEGA;
+    let omega = cfg.swirl_omega;
     let k = omega * omega;
-    let c = 2.0 * omega * SWIRL_DAMPING_RATIO;
+    let c = 2.0 * omega * cfg.swirl_damping_ratio;
     let dx = target_uv[0] - swirl_pos[0];
     let dy = target_uv[1] - swirl_pos[1];
     let ax = k * dx - c * swirl_vel[0];
@@ -486,7 +491,7 @@ fn step_inertial_swirl(
     let sdx = nx - swirl_pos[0];
     let sdy = ny - swirl_pos[1];
     let step = (sdx * sdx + sdy * sdy).sqrt();
-    let max_step = SWIRL_MAX_STEP_PER_SEC * dt_sec;
+    let max_step = cfg.swirl_max_step_per_sec * dt_sec;
     if step > max_step {
         let inv = 1.0 / (step + 1e-6);
         nx = swirl_pos[0] + sdx * inv * max_step;
@@ -505,25 +510,27 @@ fn apply_global_fx_swirl(
     sat_dry: &web::GainNode,
     swirl_energy: f32,
     uv: [f32; 2],
+    cfg: &Config,
 ) {
     _ = reverb_wet
         .gain()
-        .set_value(FX_REVERB_BASE + FX_REVERB_SPAN * swirl_energy);
+        .set_value(cfg.fx_reverb_base + cfg.fx_reverb_span * swirl_energy);
     let echo = (uv[0] - uv[1]).abs();
-    let delay_wet_val =
-        (FX_DELAY_WET_BASE + FX_DELAY_WET_SWIRL * swirl_energy + FX_DELAY_WET_ECHO * echo)
-            .clamp(0.0, 1.0);
+    let delay_wet_val = (cfg.fx_delay_wet_base
+        + cfg.fx_delay_wet_swirl * swirl_energy
+        + cfg.fx_delay_wet_echo * echo)
+        .clamp(0.0, 1.0);
     let delay_fb_val =
-        (FX_DELAY_FB_BASE + FX_DELAY_FB_SWIRL * swirl_energy + FX_DELAY_FB_ECHO * echo)
+        (cfg.fx_delay_fb_base + cfg.fx_delay_fb_swirl * swirl_energy + cfg.fx_delay_fb_echo * echo)
             .clamp(0.0, 0.95);
     _ = delay_wet.gain().set_value(delay_wet_val);
     _ = delay_feedback.gain().set_value(delay_fb_val);
     let fizz = ((uv[0] + uv[1]) * 0.5).clamp(0.0, 1.0);
-    let drive = (FX_SAT_DRIVE_MIN
-        + (FX_SAT_DRIVE_MAX - FX_SAT_DRIVE_MIN) * ((fizz - 0.25).clamp(0.0, 1.0)))
-    .clamp(FX_SAT_DRIVE_MIN, FX_SAT_DRIVE_MAX);
+    let drive = (cfg.fx_sat_drive_min
+        + (cfg.fx_sat_drive_max - cfg.fx_sat_drive_min) * ((fizz - 0.25).clamp(0.0, 1.0)))
+    .clamp(cfg.fx_sat_drive_min, cfg.fx_sat_drive_max);
     _ = sat_pre.gain().set_value(drive);
-    let wet = (FX_SAT_WET_BASE + FX_SAT_WET_SPAN * fizz).clamp(0.0, 1.0);
+    let wet = (cfg.fx_sat_wet_base + cfg.fx_sat_wet_span * fizz).clamp(0.0, 1.0);
     _ = sat_wet.gain().set_value(wet);
     _ = sat_dry.gain().set_value(1.0 - wet);
 }
