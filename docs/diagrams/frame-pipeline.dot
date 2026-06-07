@@ -13,8 +13,8 @@ digraph FramePipeline {
     fontname="Avenir",
     label=<
       <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
-        <TR><TD><FONT POINT-SIZE="34"><B>Frame Pipeline</B></FONT></TD></TR>
-        <TR><TD><FONT POINT-SIZE="15" COLOR="#4e7a61">One requestAnimationFrame tick: drain input, then run the ordered systems.</FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="34"><B>Scheduler &amp; Frame Loops</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="15" COLOR="#4e7a61">Two loops: a setInterval audio scheduler (audio clock) and the requestAnimationFrame render frame.</FONT></TD></TR>
       </TABLE>
     >,
     labelloc=t,
@@ -24,12 +24,12 @@ digraph FramePipeline {
   node [
     shape=box,
     style="rounded,filled",
-    margin="0.21,0.13",
-    width=2.95,
-    height=0.66,
+    margin="0.2,0.12",
+    width=2.8,
+    height=0.62,
     fixedsize=false,
     fontname="Avenir",
-    fontsize=18,
+    fontsize=17,
     penwidth=2.4,
     fontcolor="#14213d",
     color="#2264c7",
@@ -49,68 +49,73 @@ digraph FramePipeline {
   // ---- Input (event closures enqueue; never mutate state) ----
   subgraph cluster_input {
     graph [
-      label=<
-        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1e6b43"><B>INPUT (event closures)</B></FONT></TD></TR>
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">Map raw events to commands and enqueue; no direct state mutation.</FONT></TD></TR>
-        </TABLE>
-      >,
-      labelloc=t, labeljust=l, color="#b8e5c8", fillcolor="#f4fbf6",
-      style="rounded,filled", penwidth=1.8, margin=20
+      label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#1e6b43"><B>INPUT (event closures)</B></FONT></TD></TR></TABLE>>,
+      labelloc=t, labeljust=l, color="#b8e5c8", fillcolor="#f4fbf6", style="rounded,filled", penwidth=1.8, margin=18
     ];
-
-    K [label=<<B>keydown</B><BR/><FONT POINT-SIZE="15">command_for_key</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    P [label=<<B>pointer up / move</B><BR/><FONT POINT-SIZE="15">voice click, play, drag, ripple</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    Q [label=<<B>Command queue</B><BR/><FONT POINT-SIZE="15">VecDeque&lt;InputCommand&gt;</FONT>>, shape=cylinder, fillcolor="#eaf8ef:#ffffff", color="#22865a", height=0.9];
-
+    K [label=<<B>keydown</B><BR/><FONT POINT-SIZE="14">command_for_key</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P [label=<<B>pointer</B><BR/><FONT POINT-SIZE="14">voice click, play, drag, ripple</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    Q [label=<<B>Command queue</B>>, shape=cylinder, fillcolor="#eaf8ef:#ffffff", color="#22865a", height=0.85];
     K -> Q;
     P -> Q;
   }
 
-  // ---- frame(): ordered systems ----
+  // ---- Audio scheduler (audio clock, off-frame) ----
+  subgraph cluster_scheduler {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>AUDIO SCHEDULER  (setInterval, audio clock)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#357a74">Schedules each note at its exact AudioContext time ~0.15 s ahead.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
+    ];
+    SS [label=<<B>engine.step</B><BR/><FONT POINT-SIZE="14">one grid step → notes</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    SN [label=<<B>spawn_note</B><BR/><FONT POINT-SIZE="14">schedule at audio time</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    SS -> SN;
+  }
+
+  // ---- frame(): render clock ----
   subgraph cluster_frame {
     graph [
       label=<
         <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#9a7400"><B>frame()  —  ordered systems</B></FONT></TD></TR>
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#a98a3a">Fixed order is the contract; each step reads the shared state it needs.</FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#9a7400"><B>frame()  (requestAnimationFrame)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#a98a3a">Ordered systems; fixed order is the contract.</FONT></TD></TR>
         </TABLE>
       >,
-      labelloc=t, labeljust=l, color="#f3dd9a", fillcolor="#fffdf5",
-      style="rounded,filled", penwidth=1.8, margin=20
+      labelloc=t, labeljust=l, color="#f3dd9a", fillcolor="#fffdf5", style="rounded,filled", penwidth=1.8, margin=18
     ];
-
     F1 [label=<<B>apply_input_commands</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F2 [label=<<B>advance_music</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F3 [label=<<B>update_pulses</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F4 [label=<<B>update_swirl_and_fx</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F5 [label=<<B>update_spatial_audio</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F6 [label=<<B>update_ambient</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F7 [label=<<B>render_scene</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    F8 [label=<<B>trigger_scheduled_notes</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-
-    F1 -> F2 -> F3 -> F4 -> F5 -> F6 -> F7 -> F8;
+    F2 [label=<<B>update_pulses</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F3 [label=<<B>update_swirl_and_fx</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F4 [label=<<B>update_spatial_audio</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F5 [label=<<B>update_ambient</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F6 [label=<<B>render_scene</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F1 -> F2 -> F3 -> F4 -> F5 -> F6;
   }
 
   // ---- Shared state / resources ----
-  E  [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="15">params, voices, seeded RNGs</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-  AU [label=<<B>Web Audio graph</B><BR/><FONT POINT-SIZE="15">panners, sends, FX buses</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
-  NP [label=<<B>Note pool</B><BR/><FONT POINT-SIZE="15">active_notes (reap + cap)</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
-  G  [label=<<B>WebGPU renderer</B><BR/><FONT POINT-SIZE="15">waves + bloom + post</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+  E  [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="14">params, voices, seeded RNGs</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  PQ [label=<<B>Pulse queue</B><BR/><FONT POINT-SIZE="14">(voice, audio time, vel)</FONT>>, shape=cylinder, fillcolor="#e6fffb:#ffffff", color="#0f766e", height=0.9];
+  AU [label=<<B>Web Audio graph</B>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  NP [label=<<B>Note pool</B><BR/><FONT POINT-SIZE="14">reap + cap</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  G  [label=<<B>WebGPU renderer</B>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
 
-  { rank=same; F1; E; }
-  { rank=same; F7; G; }
-  { rank=same; F8; NP; }
+  { rank=same; SS; E; }
+  { rank=same; SN; F1; }
 
-  // ---- Cross edges ----
+  // ---- Edges ----
   Q -> F1 [label="drain", lhead=cluster_frame];
-  F1 -> E  [label="root / mode / tempo / mute…", style=dashed, color="#6b7280", fontcolor="#6b7280"];
-  F1 -> AU [label="volume / mute", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
-  F2 -> E  [label="tick → note events", dir=both];
-  F4 -> AU [label="reverb / delay / saturation", constraint=false];
-  F5 -> AU [label="panner pos + sends", constraint=false];
-  F6 -> G  [label="ambient clear", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
-  F7 -> G  [label="swirl, ripple, render"];
-  F8 -> NP [label="spawn / reap"];
-  NP -> AU [label="oscillator + gain", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+  E -> SS [label="step", dir=both, ltail=cluster_scheduler];
+  F1 -> E [label="root / mode / tempo / mute…", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+  SN -> AU [label="oscillator + gain"];
+  SN -> NP [label="track"];
+  SN -> PQ [label="timed pulse"];
+  PQ -> F2 [label="fire when due"];
+  F3 -> AU [label="reverb / delay / saturation", constraint=false];
+  F4 -> AU [label="panner + sends", constraint=false];
+  F5 -> G [label="ambient clear", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+  F6 -> G [label="swirl, ripple, render"];
+  NP -> AU [style=dashed, color="#6b7280", constraint=false];
 }

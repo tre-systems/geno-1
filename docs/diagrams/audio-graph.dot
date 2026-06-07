@@ -47,7 +47,7 @@ digraph AudioGraph {
   ];
 
   // ---- Source (engine, host-testable) ----
-  ENG [label=<<B>MusicEngine.tick</B><BR/><FONT POINT-SIZE="14">NoteEvent: voice, freq, vel, dur</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  ENG [label=<<B>Audio scheduler → engine.step</B><BR/><FONT POINT-SIZE="14">NoteEvent (voice, freq, vel, dur),<BR/>scheduled on the audio clock</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
 
   // ---- Per-voice strip ----
   subgraph cluster_voice {
@@ -110,7 +110,7 @@ digraph AudioGraph {
   AN   [label=<<B>AnalyserNode</B><BR/><FONT POINT-SIZE="14">optional, drives visuals</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
 
   // ---- Cross-cluster wiring ----
-  ENG -> OSC [label="spawn per note", lhead=cluster_voice];
+  ENG -> OSC [label="spawn at scheduled time", lhead=cluster_voice];
   PAN -> MAS [label="dry voice", lhead=cluster_master];
   ENV -> DS  [label="send", style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_delay];
   ENV -> RS  [label="send", style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_reverb];

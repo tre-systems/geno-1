@@ -42,24 +42,26 @@ This document describes how the system is built. For the code-level patterns and
   with an internal `src/core` module for host-testable logic (engine, keymap, picking).
 - **WebGPU via `wgpu`:** all rendering uses WebGPU through the `wgpu` crate. The "window" is an HTML
   `<canvas>` with a WebGPU surface. WebGL is intentionally not supported.
-- **Web Audio:** synthesis and output use the Web Audio API through `web-sys`. Generation runs on the
-  main thread and schedules note events against the `requestAnimationFrame` loop.
+- **Web Audio:** synthesis and output use the Web Audio API through `web-sys`. A lookahead scheduler on
+  a `setInterval` advances generation and schedules notes ahead on the `AudioContext` clock — off the
+  render frame, so timing does not depend on the frame rate.
 - **No game engine:** graphics use `wgpu` with `glam` for math; randomness uses `rand`. Core logic is custom.
 - **Browser support:** Chrome / Edge 113+ with WebGPU enabled. A Start overlay handles the audio
   gesture unlock; a missing-WebGPU message is shown when `navigator.gpu` is absent.
 
 ## System Architecture
 
-The system has three subsystems that share memory in a single WASM module and update together each frame:
+The system has three subsystems that share memory in a single WASM module, driven by two loops:
 
 1. **Audio engine** — generates note events and renders sound with spatial effects.
 2. **Visual engine** — renders the wave field and post-processing stack with WebGPU.
 3. **Interaction module** — translates keyboard and pointer input into engine and audio changes.
 
-A `requestAnimationFrame` loop (`src/frame.rs`) advances the engine, synthesises any new notes,
-modulates the global FX from pointer "swirl" energy, updates per-voice spatialisation, and renders a
-frame. Note events flow from the engine to the visuals as per-voice pulses, so visuals react to the
-same events that produce sound.
+A lookahead scheduler (`src/scheduler.rs`) on a `setInterval` advances the engine one grid step at a
+time and schedules notes ahead on the `AudioContext` clock. A `requestAnimationFrame` loop
+(`src/frame.rs`) applies queued input, modulates the global FX from pointer "swirl" energy, updates
+per-voice spatialisation, and renders a frame. The scheduler hands the frame a queue of timed visual
+pulses, so the visuals react — in sync — to the same notes that produce sound.
 
 ### Audio Engine
 
@@ -73,8 +75,8 @@ _Source: [`diagrams/audio-graph.dot`](diagrams/audio-graph.dot) — see [diagram
 
 Key behaviours:
 
-- **Generation:** an eighth-note grid scheduler ticks each voice; on each subdivision a voice may play
-  a scale-constrained note based on its trigger probability and octave offset. Reseeding produces new
+- **Generation:** on each eighth-note grid step the scheduler advances every voice; a voice may play a
+  scale-constrained note based on its trigger probability and octave offset. Reseeding produces new
   per-voice sequences so the music keeps evolving.
 - **Synthesis:** each note creates an `OscillatorNode` of the voice's waveform, shaped by a `GainNode`
   attack/release envelope to avoid clicks.

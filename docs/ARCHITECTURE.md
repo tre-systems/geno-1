@@ -5,9 +5,10 @@ it. For *what* the system does and the audio/visual pipelines, see [`SPEC.md`](S
 
 ## System Overview
 
-Geno-1 is a single Rust crate (`app-web`) compiled to WebAssembly. A `requestAnimationFrame` loop
-([`frame.rs`](../src/frame.rs)) drains a shared input queue, advances a deterministic music engine,
-synthesises new notes through a Web Audio graph, modulates global effects from pointer gestures,
+Geno-1 is a single Rust crate (`app-web`) compiled to WebAssembly. Two loops drive it: an audio-clock
+scheduler ([`scheduler.rs`](../src/scheduler.rs)) advances a deterministic music engine and schedules
+notes ahead through a Web Audio graph, and a `requestAnimationFrame` loop ([`frame.rs`](../src/frame.rs))
+drains a shared input queue, fires timed visual pulses, modulates global effects from pointer gestures,
 updates per-voice spatial audio, and renders an audio-reactive wave field with WebGPU. The core logic
 (engine, key maps, picking, the key→command mapping) is plain host-testable Rust; everything
 browser-facing is gated to the wasm target.
@@ -37,15 +38,17 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   plus one `aux_rng`, all derived from a single base seed by hash-mixing, so a seed reproduces the
   music and every randomized action — including the `T` key (`randomize_root_and_mode`) — is
   deterministic and host-testable. No wall-clock, no I/O in the engine.
-- **Fixed-timestep accumulator.** [`MusicEngine::tick(dt)`](../src/core/music.rs) advances
-  `beat_accum += dt` and drains it in fixed eighth-note `step`s (`while beat_accum >= step`), so
-  scheduling is frame-rate independent and reproducible. The host owns the clock and feeds elapsed `dt`.
+- **One grid step at a time.** [`MusicEngine::step`](../src/core/music.rs) advances exactly one
+  eighth-note grid step, pushing any triggered notes. The audio scheduler drives it directly on the
+  audio clock; `tick(dt)` wraps it in a wall-clock accumulator for the host tests. No wall-clock or
+  audio I/O lives in the engine.
 - **Plain structs, not an ECS.** The voice set is tiny and fixed, so the engine holds `Vec<VoiceState>`
-  + `Vec<VoiceConfig>` as plain fields and iterates them in `schedule_step`.
+  + `Vec<VoiceConfig>` as plain fields and iterates them in `step`.
 - **Pure functions for math/lookup.** [`midi_to_hz`](../src/core/music.rs),
   [`ray_sphere` / `nearest_index_by_uvx`](../src/input.rs), [`screen_to_world_ray`](../src/camera.rs),
   [`root_midi_for_key` / `mode_scale_for_digit`](../src/events/keymap.rs), and
-  [`command_for_key`](../src/events/command.rs) are pure; the 33 host tests target exactly these.
+  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 35 host tests also include
+  a golden snapshot of the engine's seeded note sequence and `naga` validation of the WGSL shaders.
 
 ### Input
 
@@ -60,14 +63,23 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   ([`FrameContext::apply_input_commands`](../src/frame.rs)); event closures never mutate engine, audio,
   or UI state directly. **New input sources (touch, MIDI) should enqueue commands, not reach into state.**
 
+### Audio scheduling (`scheduler.rs`)
+
+- **Lookahead scheduler on the audio clock.** Note generation and scheduling run off the render frame.
+  An [`AudioScheduler`](../src/scheduler.rs) on a `setInterval` advances the engine one `step` at a time
+  and schedules each note at its exact `AudioContext` time ~0.15 s ahead, so timing is sample-accurate
+  and independent of the frame rate (and keeps running, coarsely, in a backgrounded tab). It emits a
+  queue of timed visual pulses (`(voice, audio_time, velocity)`) that the frame loop fires when they
+  sound, so the visuals stay in sync with the audio.
+
 ### The frame loop (`frame.rs`)
 
 ![Frame pipeline](diagrams/frame-pipeline.png)
 
 - **Named, ordered systems.** [`FrameContext::frame`](../src/frame.rs) is an explicit pipeline of named
-  methods run in a fixed order: `apply_input_commands` → `advance_music` → `update_pulses` →
-  `update_swirl_and_fx` → `update_spatial_audio` → `update_ambient` → `render_scene` →
-  `trigger_scheduled_notes`. The ordering is the contract; each system reads the shared state it needs.
+  methods run in a fixed order: `apply_input_commands` → `update_pulses` → `update_swirl_and_fx` →
+  `update_spatial_audio` → `update_ambient` → `render_scene`. The ordering is the contract; each system
+  reads the shared state it needs. (Note generation lives in the scheduler above, not here.)
 - **Interior mutability with scoped borrows.** Shared state (`engine`, `paused`, `input_queue`,
   `pulses`, `hover_index`, `drag_state`) is `Rc<RefCell<_>>` shared between the RAF loop and the event
   closures. Borrows are deliberately scoped and dropped before re-borrowing or calling out — the
@@ -102,9 +114,10 @@ See the [audio graph diagram](diagrams/audio-graph.png) for the full signal flow
   all use `anyhow::Result` + `?`, carrying the failing node's name; init shows a user-facing DOM
   message on failure. Per-frame code never returns `Result`.
 - **Bounded note pool.** [`trigger_one_shot`](../src/audio.rs) returns the `ActiveNote` (oscillator +
-  gain + stop time) it creates. The frame loop ([`spawn_note`](../src/frame.rs)) tracks live notes,
-  disconnects any whose stop time has passed, and caps concurrency at `MAX_POLYPHONY`, so node lifetime
-  is bounded and explicit rather than left to the GC.
+  gain + stop time) it creates, and [`spawn_note`](../src/audio.rs) tracks it in a shared pool,
+  disconnecting any note whose stop time has passed and capping concurrency at `MAX_POLYPHONY`. Both the
+  scheduler (rhythmic notes) and the frame (click-to-play) spawn through it, so node lifetime is bounded
+  and explicit rather than left to the GC.
 
 ### Rendering (`render/`)
 
@@ -154,9 +167,10 @@ Patterns worth extending (see [`TODO.md`](TODO.md) for the full backlog):
 | **core** | [`src/core/`](../src/core/) | Generative engine, scales, seeded scheduling, and domain units (`units.rs`). The heart. | ✅ |
 | **input** | [`src/input.rs`](../src/input.rs) | Pure picking math (`ray_sphere`, nearest-by-UV) + pointer state. | ✅ |
 | **events** | [`src/events/`](../src/events/) | `keymap` + `command` (pure, tested) and `keyboard`/`pointer` (thin wasm handlers that enqueue commands). | partial |
-| **audio** | [`src/audio.rs`](../src/audio.rs) | Web Audio graph construction, per-voice routing, and one-shot note nodes. | wasm-only |
+| **audio** | [`src/audio.rs`](../src/audio.rs) | Web Audio graph construction, per-voice routing, note spawning + pool. | wasm-only |
+| **scheduler** | [`src/scheduler.rs`](../src/scheduler.rs) | Lookahead audio-clock scheduler: drives `engine.step`, schedules notes, emits timed pulses. | wasm-only |
 | **render** | [`src/render.rs`](../src/render.rs), [`src/render/`](../src/render/) | WebGPU pipelines: waves, bloom, post, targets. | wasm-only |
-| **frame** | [`src/frame.rs`](../src/frame.rs) | RAF loop, ordered per-frame systems, command application, note pool. | wasm-only |
+| **frame** | [`src/frame.rs`](../src/frame.rs) | RAF loop: command application, timed pulses, swirl/FX, spatial audio, render. | wasm-only |
 | **wasm_app** | [`src/wasm_app.rs`](../src/wasm_app.rs) | `#[wasm_bindgen(start)]` entry; builds the graph, wires input, starts the loop. | wasm-only |
 | **constants** | [`src/constants.rs`](../src/constants.rs) | Tuning constants and the runtime `Config`. | wasm-only |
 | **dom / overlay / camera** | [`src/`](../src/) | Canvas sizing, hint/help overlay, view math. | mixed |

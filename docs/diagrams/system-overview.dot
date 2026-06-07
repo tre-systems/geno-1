@@ -69,7 +69,7 @@ digraph SystemOverview {
       label=<
         <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
           <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1e6b43"><B>app-web  (Rust → WebAssembly)</B></FONT></TD></TR>
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">Single crate. Green = host-testable core; amber = the per-frame loop.</FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">Single crate. Green = host-testable core; teal = audio (scheduler + graph); amber = the render frame.</FONT></TD></TR>
         </TABLE>
       >,
       labelloc=t, labeljust=l, color="#cdebd7", fillcolor="#fbfefc",
@@ -78,16 +78,20 @@ digraph SystemOverview {
 
     A1 [label=<<B>wasm_app::start</B><BR/><FONT POINT-SIZE="15">entry: build graph, wire input</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
     A2 [label=<<B>Input → command queue</B><BR/><FONT POINT-SIZE="15">events::command (host-tested map)</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A7 [label=<<B>Audio scheduler</B><BR/><FONT POINT-SIZE="15">setInterval; audio clock, lookahead</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e", penwidth=3.0];
     A3 [label=<<B>Frame loop</B><BR/><FONT POINT-SIZE="15">requestAnimationFrame; ordered systems</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00", penwidth=3.0];
     A4 [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="15">core: seeded, deterministic</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
     A5 [label=<<B>Web Audio graph</B><BR/><FONT POINT-SIZE="15">voices, panners, FX buses</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
     A6 [label=<<B>WebGPU renderer</B><BR/><FONT POINT-SIZE="15">waves + bloom + post (WGSL)</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
 
+    A1 -> A7 [label="start scheduler"];
     A1 -> A3 [label="start RAF"];
-    A1 -> A4 [style=invis];
     A2 -> A3 [label="enqueue"];
-    A3 -> A4 [label="tick → note events"];
-    A3 -> A5 [label="trigger notes,\nmodulate FX"];
+    A7 -> A4 [label="step → notes"];
+    A7 -> A5 [label="schedule notes"];
+    A7 -> A3 [label="timed pulses", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+    A3 -> A4 [label="apply commands", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+    A3 -> A5 [label="modulate FX"];
     A3 -> A6 [label="render frame"];
   }
 

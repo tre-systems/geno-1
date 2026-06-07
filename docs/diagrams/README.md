@@ -8,14 +8,15 @@ committed for in-browser viewing on GitHub.
 | Diagram | Source | Rendered |
 | --- | --- | --- |
 | System overview | `system-overview.dot` | `system-overview.png` |
-| Frame pipeline (per-frame ordered systems) | `frame-pipeline.dot` | `frame-pipeline.png` |
+| Scheduler & frame loops | `frame-pipeline.dot` | `frame-pipeline.png` |
 | Audio graph (Web Audio signal flow) | `audio-graph.dot` | `audio-graph.png` |
 | Render pipeline (WebGPU passes) | `render-pipeline.dot` | `render-pipeline.png` |
 
 ## Reading Order
 
 1. **System overview** for the whole Browser / `app-web` (WASM) / Cloudflare shape.
-2. **Frame pipeline** for how one `requestAnimationFrame` tick drains input and runs the ordered systems.
+2. **Scheduler & frame loops** for how the audio scheduler generates and schedules notes on the audio
+   clock, and the frame consumes the timed pulses and renders.
 3. **Audio graph** when touching the Web Audio routing, FX buses, or note triggering.
 4. **Render pipeline** when touching the WebGPU passes, bloom, or post-processing.
 
