@@ -44,7 +44,7 @@ struct InitParts {
     paused: Rc<RefCell<bool>>,
 }
 
-async fn build_audio_and_engine(_document: web::Document) -> anyhow::Result<InitParts> {
+async fn build_audio_and_engine() -> anyhow::Result<InitParts> {
     let audio_ctx = web::AudioContext::new().map_err(|e| anyhow::anyhow!("{:?}", e))?;
     _ = audio_ctx.resume();
     let listener = audio_ctx.listener();
@@ -104,29 +104,19 @@ async fn build_audio_and_engine(_document: web::Document) -> anyhow::Result<Init
 
 fn wire_overlay_buttons(audio_ctx: &web::AudioContext, paused: &Rc<RefCell<bool>>) {
     if let Some(doc2) = dom::window_document() {
-        let paused_ok = paused.clone();
-        let audio_ok = audio_ctx.clone();
-        dom::add_click_listener(&doc2, "overlay-ok", move || {
-            *paused_ok.borrow_mut() = false;
-            _ = audio_ok.resume();
-            if let Some(w2) = web::window() {
-                if let Some(d2) = w2.document() {
+        let dismiss = |id: &str| {
+            let paused = paused.clone();
+            let audio_ctx = audio_ctx.clone();
+            dom::add_click_listener(&doc2, id, move || {
+                *paused.borrow_mut() = false;
+                _ = audio_ctx.resume();
+                if let Some(d2) = dom::window_document() {
                     overlay::hide(&d2);
                 }
-            }
-        });
-
-        let paused_close = paused.clone();
-        let audio_close = audio_ctx.clone();
-        dom::add_click_listener(&doc2, "overlay-close", move || {
-            *paused_close.borrow_mut() = false;
-            _ = audio_close.resume();
-            if let Some(w2) = web::window() {
-                if let Some(d2) = w2.document() {
-                    overlay::hide(&d2);
-                }
-            }
-        });
+            });
+        };
+        dismiss("overlay-ok");
+        dismiss("overlay-close");
     }
 }
 
@@ -157,20 +147,15 @@ async fn init() -> anyhow::Result<()> {
         .dyn_into::<web::HtmlCanvasElement>()
         .map_err(|e| anyhow::anyhow!(format!("{:?}", e)))?;
 
-    // Note: start overlay is handled below (toggle with 'h') once audio is initialized.
-
-    // Avoid grabbing a 2D context here to allow WebGPU to acquire the canvas
-
     // Maintain canvas internal pixel size to match CSS size * devicePixelRatio
     wire_canvas_resize(&canvas);
 
-    // Prepare a clone for use inside the click closure
     let canvas_for_click = canvas.clone();
 
     // Start audio graph and scheduling + WebGPU renderer immediately; show overlay until OK/close
     static STARTED: AtomicBool = AtomicBool::new(false);
     {
-        if STARTED.swap(true, Ordering::SeqCst) == false {
+        if !STARTED.swap(true, Ordering::SeqCst) {
             let canvas_for_click_inner = canvas_for_click.clone();
             spawn_local(async move {
                 let InitParts {
@@ -178,7 +163,7 @@ async fn init() -> anyhow::Result<()> {
                     listener_for_tick,
                     engine,
                     paused,
-                } = match build_audio_and_engine(document.clone()).await {
+                } = match build_audio_and_engine().await {
                     Ok(p) => p,
                     Err(e) => {
                         log::error!("audio init error: {:?}", e);
@@ -283,7 +268,6 @@ async fn init() -> anyhow::Result<()> {
                     paused: paused.clone(),
                     input_queue: input_queue.clone(),
                     pulses: pulses.clone(),
-                    hover_index: hover_index.clone(),
                     canvas: canvas_for_click_inner.clone(),
                     mouse: mouse_state.clone(),
                     audio_ctx: audio_ctx.clone(),

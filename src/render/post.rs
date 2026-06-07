@@ -1,5 +1,4 @@
 use crate::constants;
-use wgpu;
 
 pub(crate) struct PostResources {
     pub(crate) bgl0: wgpu::BindGroupLayout, // tex+sampler+uniform
@@ -163,7 +162,6 @@ pub(crate) fn rebuild_bind_groups(
     wgpu::BindGroup, // bg_from_bloom_a
     wgpu::BindGroup, // bg_from_bloom_b
     wgpu::BindGroup, // bg_bloom_a_only
-    wgpu::BindGroup, // bg_bloom_b_only
 ) {
     let bg_hdr = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("bg_hdr"),
@@ -233,27 +231,7 @@ pub(crate) fn rebuild_bind_groups(
             },
         ],
     });
-    let bg_bloom_b_only = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("bg_bloom_b_only"),
-        layout: &post.bgl1,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(bloom_b_view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(linear_sampler),
-            },
-        ],
-    });
-    (
-        bg_hdr,
-        bg_from_bloom_a,
-        bg_from_bloom_b,
-        bg_bloom_a_only,
-        bg_bloom_b_only,
-    )
+    (bg_hdr, bg_from_bloom_a, bg_from_bloom_b, bg_bloom_a_only)
 }
 
 pub(crate) fn write_post_uniforms(

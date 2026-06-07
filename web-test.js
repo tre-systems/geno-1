@@ -26,7 +26,7 @@ async function gotoWithRetry(
 
 (async () => {
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: true,
     args: [
       // CI-friendly flags: disable sandbox and GPU to avoid kernel/AppArmor limits
       "--no-sandbox",
@@ -130,14 +130,12 @@ async function gotoWithRetry(
 
     if (!logs.some((l) => /\[keys\] master muted=true/.test(l)))
       throw new Error("missing master mute= true log");
-    // Muted state no longer shown in hint; rely on logs only
 
     await page.keyboard.press("KeyM");
     await new Promise((r) => setTimeout(r, 120));
 
     if (!logs.some((l) => /\[keys\] master muted=false/.test(l)))
       throw new Error("missing master mute= false log");
-    // Muted state no longer shown in hint; rely on logs only
 
     // Click center to toggle mute on the hovered voice (expects a hit)
     await page.mouse.move(box.x, box.y);
@@ -155,7 +153,7 @@ async function gotoWithRetry(
     if (!logs.some((l) => /\[click\] solo voice \d+/.test(l)))
       throw new Error("missing solo click log");
 
-    // Test G key support (new functionality)
+    // Test G key support
     await page.keyboard.press("KeyG");
     await new Promise((r) => setTimeout(r, 120));
 

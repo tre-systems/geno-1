@@ -1,47 +1,40 @@
 use super::units::{Bpm, Cents, Hz, MidiNote, VoiceIndex};
 use glam::Vec3;
 use rand::prelude::*;
-use rand::seq::SliceRandom;
 use std::time::Duration;
 
 /// Basic oscillator shape used by synths in the web front-end.
 #[derive(Clone, Copy, Debug)]
 pub enum Waveform {
     Sine,
-    //Square,
     Saw,
     Triangle,
 }
 
 /// Static configuration for a voice used at engine construction time.
-///
-/// Fields:
-/// - `waveform`: oscillator type to synthesize this voice in the web frontend
-/// - `base_position`: initial engine-space position (XZ plane; Y is typically 0)
-/// - `trigger_probability`: chance (0.0-1.0) that this voice triggers on each grid step
-/// - `octave_offset`: octave adjustment relative to root note (-2 to +2)
-/// - `base_duration`: base note duration in seconds
 #[derive(Clone, Debug)]
 pub struct VoiceConfig {
     pub waveform: Waveform,
+    /// Initial engine-space position (XZ plane; Y is typically 0).
     pub base_position: Vec3,
+    /// Chance (0.0-1.0) that this voice triggers on each grid step.
     pub trigger_probability: f32,
+    /// Octave adjustment relative to the root note (-2 to +2).
     pub octave_offset: i32,
+    /// Base note duration in seconds.
     pub base_duration: f32,
 }
 
 /// A scheduled musical event produced by the engine for playback.
-///
-/// Fields:
-/// - `voice`: which voice this event belongs to (index into `voices`)
-/// - `freq`: target pitch in Hertz (already converted from MIDI)
-/// - `velocity`: normalized loudness 0..1 (mapped to gain envelope)
-/// - `duration_sec`: nominal duration in seconds (envelope length)
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct NoteEvent {
+    /// Which voice this event belongs to (index into `voices`).
     pub voice: VoiceIndex,
+    /// Target pitch in Hertz (already converted from MIDI).
     pub freq: Hz,
+    /// Normalized loudness 0..1 (mapped to the gain envelope).
     pub velocity: f32,
+    /// Nominal duration in seconds (envelope length).
     pub duration_sec: f32,
 }
 
@@ -251,7 +244,6 @@ impl MusicEngine {
         }
         self.beat_accum += dt.as_secs_f64();
         while self.beat_accum >= step {
-            // eighth notes grid
             self.beat_accum -= step;
             self.step(out_events);
         }

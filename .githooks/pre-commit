@@ -4,9 +4,7 @@ set -e
 
 echo "[pre-commit] Running fast checks (fmt, clippy, unit tests)..."
 
-# Format check and lint/tests for Rust (skip app-web to keep this fast)
+# Rust fmt/clippy/tests only; defers the wasm build + web test to pre-push to stay fast
 npm run check:rust >/dev/null
 
 echo "[pre-commit] OK"
-
-

@@ -28,7 +28,6 @@ pub struct AudioScheduler {
     active_notes: Rc<RefCell<Vec<ActiveNote>>>,
     pending_pulses: PulseQueue,
     next_note_time: f64,
-    announced: bool,
 }
 
 impl AudioScheduler {
@@ -53,7 +52,6 @@ impl AudioScheduler {
             active_notes,
             pending_pulses,
             next_note_time: 0.0,
-            announced: false,
         }
     }
 
@@ -98,10 +96,6 @@ impl AudioScheduler {
                     self.next_note_time,
                     ev.velocity,
                 ));
-                if !self.announced {
-                    self.announced = true;
-                    log::info!("[scheduler] scheduling notes on the audio clock");
-                }
             }
             self.next_note_time += step_sec;
         }

@@ -15,15 +15,11 @@ use wasm_bindgen::JsCast;
 use web_sys as web;
 use web_time::Instant;
 
-use crate::constants::CAMERA_Z;
-
 pub struct FrameContext<'a> {
     pub engine: Rc<RefCell<MusicEngine>>,
     pub paused: Rc<RefCell<bool>>,
     pub input_queue: Rc<RefCell<VecDeque<InputCommand>>>,
     pub pulses: Rc<RefCell<Vec<f32>>>,
-    #[allow(dead_code)] // Used in pointer events, not directly in frame module
-    pub hover_index: Rc<RefCell<Option<usize>>>,
 
     pub canvas: web::HtmlCanvasElement,
     pub mouse: Rc<RefCell<input::MouseState>>,
@@ -124,11 +120,10 @@ impl<'a> FrameContext<'a> {
             let eng = self.engine.borrow();
             eng.voices.iter().map(|v| v.position).collect()
         };
-        for i in 0..self.voice_panners.len() {
-            let pos = voice_positions[i];
-            self.voice_panners[i].position_x().set_value(pos.x as f32);
-            self.voice_panners[i].position_y().set_value(pos.y as f32);
-            self.voice_panners[i].position_z().set_value(pos.z as f32);
+        for (i, &pos) in voice_positions.iter().enumerate() {
+            self.voice_panners[i].position_x().set_value(pos.x);
+            self.voice_panners[i].position_y().set_value(pos.y);
+            self.voice_panners[i].position_z().set_value(pos.z);
             let dist = (pos.x * pos.x + pos.z * pos.z).sqrt();
             let mut d_amt = (D_SEND_BASE + D_SEND_SPAN * pos.x.abs().min(1.0)).clamp(0.0, 1.0);
             let mut r_amt = (R_SEND_BASE
@@ -139,8 +134,7 @@ impl<'a> FrameContext<'a> {
             r_amt = (r_amt * boost).clamp(0.0, R_SEND_CLAMP_MAX);
             self.delay_sends[i].gain().set_value(d_amt);
             self.reverb_sends[i].gain().set_value(r_amt);
-            let lvl = (LEVEL_BASE + LEVEL_SPAN * (1.0 - (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0)))
-                as f32;
+            let lvl = LEVEL_BASE + LEVEL_SPAN * (1.0 - (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0));
             self.voice_gains[i].gain().set_value(lvl);
         }
     }
@@ -156,13 +150,14 @@ impl<'a> FrameContext<'a> {
                 }
                 a.get_float_frequency_data(&mut buf);
             }
-            let mut sum = 0.0f32;
-            let take = bins.min(ANALYSER_BINS_SAMPLED) as u32;
-            for i in 0..take {
-                let v = self.analyser_buf.borrow()[i as usize];
-                let lin = ((v + ANALYSER_DB_FLOOR) / ANALYSER_DB_FLOOR).clamp(0.0, 1.0);
-                sum += lin;
-            }
+            let take = bins.min(ANALYSER_BINS_SAMPLED);
+            let sum: f32 = {
+                let buf = self.analyser_buf.borrow();
+                buf[..take]
+                    .iter()
+                    .map(|&v| ((v + ANALYSER_DB_FLOOR) / ANALYSER_DB_FLOOR).clamp(0.0, 1.0))
+                    .sum()
+            };
             let avg = sum / take as f32;
             {
                 let mut pulses_ref = self.pulses.borrow_mut();
@@ -188,14 +183,7 @@ impl<'a> FrameContext<'a> {
             if let Some(uvr) = self.pending_ripple.take() {
                 g.set_ripple(uvr, 1.0);
             }
-            let speed_norm = (self.swirl_vel[0] * self.swirl_vel[0]
-                + self.swirl_vel[1] * self.swirl_vel[1])
-                .sqrt()
-                .clamp(0.0, 1.0);
-            let strength = SWIRL_RENDER_STRENGTH_BASE
-                + SWIRL_RENDER_STRENGTH_ENERGY * self.swirl_energy
-                + SWIRL_RENDER_STRENGTH_SPEED * speed_norm;
-            g.set_swirl(self.swirl_pos, strength, true);
+            g.set_swirl(self.swirl_pos, true);
             let w = self.canvas.width();
             let h = self.canvas.height();
             g.resize_if_needed(w, h);
@@ -289,7 +277,7 @@ impl<'a> FrameContext<'a> {
                 }
                 InputCommand::VolumeDelta(d) => {
                     let v = self.master_gain.gain().value();
-                    _ = self.master_gain.gain().set_value((v + d).clamp(0.0, 1.0));
+                    self.master_gain.gain().set_value((v + d).clamp(0.0, 1.0));
                 }
                 InputCommand::ToggleMute => {
                     let muted = audio::toggle_master_mute(&self.master_gain);
@@ -306,7 +294,7 @@ impl<'a> FrameContext<'a> {
                 InputCommand::ToggleFullscreen => {
                     if let Some(doc) = web::window().and_then(|w| w.document()) {
                         if doc.fullscreen_element().is_some() {
-                            _ = doc.exit_fullscreen();
+                            doc.exit_fullscreen();
                         } else {
                             _ = self.canvas.request_fullscreen();
                         }
@@ -314,7 +302,7 @@ impl<'a> FrameContext<'a> {
                 }
                 InputCommand::ExitFullscreen => {
                     if let Some(doc) = web::window().and_then(|w| w.document()) {
-                        _ = doc.exit_fullscreen();
+                        doc.exit_fullscreen();
                     }
                 }
                 InputCommand::ToggleHelp => {
@@ -378,8 +366,8 @@ impl<'a> FrameContext<'a> {
 fn smooth_pulses(pulses: &mut [f32], pulse_energy: &mut [f32; 3], dt_sec: f32) {
     let n = pulses.len().min(3);
     let energy_decay = (-dt_sec * PULSE_ENERGY_DECAY_PER_SEC).exp();
-    for i in 0..n {
-        pulse_energy[i] *= energy_decay;
+    for e in pulse_energy.iter_mut().take(n) {
+        *e *= energy_decay;
     }
     let tau_up = PULSE_RISE_TAU_SEC;
     let tau_down = PULSE_FALL_TAU_SEC;
@@ -420,8 +408,10 @@ pub async fn init_gpu(canvas: &web::HtmlCanvasElement) -> Option<render::GpuStat
     }
 }
 
+type RafTick = Rc<RefCell<Option<Closure<dyn FnMut()>>>>;
+
 pub fn start_loop(frame_ctx: Rc<RefCell<FrameContext<'static>>>) {
-    let tick: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
+    let tick: RafTick = Rc::new(RefCell::new(None));
     let tick_clone = tick.clone();
     let frame_ctx_tick = frame_ctx.clone();
     *tick.borrow_mut() = Some(Closure::wrap(Box::new(move || {
@@ -482,6 +472,7 @@ fn step_inertial_swirl(
     swirl_pos[1] = ny.clamp(0.0, 1.0);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_global_fx_swirl(
     reverb_wet: &web::GainNode,
     delay_wet: &web::GainNode,
@@ -493,7 +484,7 @@ fn apply_global_fx_swirl(
     uv: [f32; 2],
     cfg: &Config,
 ) {
-    _ = reverb_wet
+    reverb_wet
         .gain()
         .set_value(cfg.fx_reverb_base + cfg.fx_reverb_span * swirl_energy);
     let echo = (uv[0] - uv[1]).abs();
@@ -504,20 +495,20 @@ fn apply_global_fx_swirl(
     let delay_fb_val =
         (cfg.fx_delay_fb_base + cfg.fx_delay_fb_swirl * swirl_energy + cfg.fx_delay_fb_echo * echo)
             .clamp(0.0, 0.95);
-    _ = delay_wet.gain().set_value(delay_wet_val);
-    _ = delay_feedback.gain().set_value(delay_fb_val);
+    delay_wet.gain().set_value(delay_wet_val);
+    delay_feedback.gain().set_value(delay_fb_val);
     let fizz = ((uv[0] + uv[1]) * 0.5).clamp(0.0, 1.0);
     let drive = (cfg.fx_sat_drive_min
         + (cfg.fx_sat_drive_max - cfg.fx_sat_drive_min) * ((fizz - 0.25).clamp(0.0, 1.0)))
     .clamp(cfg.fx_sat_drive_min, cfg.fx_sat_drive_max);
-    _ = sat_pre.gain().set_value(drive);
+    sat_pre.gain().set_value(drive);
     let wet = (cfg.fx_sat_wet_base + cfg.fx_sat_wet_span * fizz).clamp(0.0, 1.0);
-    _ = sat_wet.gain().set_value(wet);
-    _ = sat_dry.gain().set_value(1.0 - wet);
+    sat_wet.gain().set_value(wet);
+    sat_dry.gain().set_value(1.0 - wet);
 }
 
 fn update_listener_to_camera(listener: &web::AudioListener, cam_eye: Vec3, cam_target: Vec3) {
     let fwd = (cam_target - cam_eye).normalize();
     listener.set_position(cam_eye.x as f64, cam_eye.y as f64, cam_eye.z as f64);
-    _ = listener.set_orientation(fwd.x as f64, fwd.y as f64, fwd.z as f64, 0.0, 1.0, 0.0);
+    listener.set_orientation(fwd.x as f64, fwd.y as f64, fwd.z as f64, 0.0, 1.0, 0.0);
 }

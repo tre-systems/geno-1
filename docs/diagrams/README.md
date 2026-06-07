@@ -22,8 +22,7 @@ committed for in-browser viewing on GitHub.
 
 ## Conventions
 
-Mermaid is used for small inline diagrams; Graphviz/DOT is used here for the larger graphs. Color
-coding by domain:
+Graphviz/DOT is used for these graphs. Color coding by domain:
 
 - **Green** — host-testable core (engine, key/command maps, picking) and input that only enqueues.
 - **Amber** — the per-frame `requestAnimationFrame` loop and its ordered systems.

@@ -34,12 +34,10 @@ pub struct GpuState<'a> {
     linear_sampler: wgpu::Sampler,
 
     post: post::PostResources,
-    // Bind groups for different sources
     bg_hdr: wgpu::BindGroup,
     bg_from_bloom_a: wgpu::BindGroup,
     bg_from_bloom_b: wgpu::BindGroup,
-    bg_bloom_a_only: wgpu::BindGroup, // group1 for composite, sampling bloom A
-    bg_bloom_b_only: wgpu::BindGroup, // group1 for composite, sampling bloom B
+    bg_bloom_a_only: wgpu::BindGroup,
 
     bright_pipeline: wgpu::RenderPipeline,
     blur_pipeline: wgpu::RenderPipeline,
@@ -53,7 +51,6 @@ pub struct GpuState<'a> {
     time_accum: f32,
     ambient_energy: f32,
     swirl_uv: [f32; 2],
-    swirl_strength: f32,
     swirl_active: f32,
     // Click/tap ripple state
     ripple_uv: [f32; 2],
@@ -132,7 +129,7 @@ impl<'a> GpuState<'a> {
 
         // Offscreen HDR targets (scene and bloom) at full and half resolution
         let hdr_format = wgpu::TextureFormat::Rgba16Float;
-        let (hdr_tex, hdr_view) = helpers::create_color_texture_device(
+        let (hdr_tex, hdr_view) = helpers::create_color_texture(
             &device,
             "hdr_tex",
             width,
@@ -143,7 +140,7 @@ impl<'a> GpuState<'a> {
         let bloom_w = (width.max(1) / 2).max(1);
         let bloom_h = (height.max(1) / 2).max(1);
         let bloom_format = wgpu::TextureFormat::Rgba16Float;
-        let (bloom_a, bloom_a_view) = helpers::create_color_texture_device(
+        let (bloom_a, bloom_a_view) = helpers::create_color_texture(
             &device,
             "bloom_a",
             bloom_w,
@@ -151,7 +148,7 @@ impl<'a> GpuState<'a> {
             bloom_format,
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         );
-        let (bloom_b, bloom_b_view) = helpers::create_color_texture_device(
+        let (bloom_b, bloom_b_view) = helpers::create_color_texture(
             &device,
             "bloom_b",
             bloom_w,
@@ -247,20 +244,6 @@ impl<'a> GpuState<'a> {
                 },
             ],
         });
-        let bg_bloom_b_only = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bg_bloom_b_only"),
-            layout: &post.bgl1,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&bloom_b_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&linear_sampler),
-                },
-            ],
-        });
 
         let bright_pipeline = post.bright_pipeline.clone();
         let blur_pipeline = post.blur_pipeline.clone();
@@ -286,7 +269,6 @@ impl<'a> GpuState<'a> {
             bg_from_bloom_a,
             bg_from_bloom_b,
             bg_bloom_a_only,
-            bg_bloom_b_only,
             bright_pipeline,
             blur_pipeline,
             composite_pipeline,
@@ -303,7 +285,6 @@ impl<'a> GpuState<'a> {
             time_accum: 0.0,
             ambient_energy: 0.0,
             swirl_uv: [0.5, 0.5],
-            swirl_strength: 0.0,
             swirl_active: 0.0,
             ripple_uv: [0.5, 0.5],
             ripple_t0: -1.0,
@@ -328,9 +309,8 @@ impl<'a> GpuState<'a> {
         self.cam_target = target;
     }
 
-    pub fn set_swirl(&mut self, uv: [f32; 2], strength: f32, active: bool) {
+    pub fn set_swirl(&mut self, uv: [f32; 2], active: bool) {
         self.swirl_uv = uv;
-        self.swirl_strength = strength;
         self.swirl_active = if active { 1.0 } else { 0.0 };
     }
 
@@ -352,10 +332,7 @@ impl<'a> GpuState<'a> {
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
 
-            // Recreate offscreen render targets and dependent bind groups
             self.targets.recreate(&self.device, width, height);
-
-            // Rebuild bind groups that reference these views
             self.rebuild_post_bind_groups();
         }
     }
@@ -525,7 +502,7 @@ impl<'a> GpuState<'a> {
 
 impl<'a> GpuState<'a> {
     fn rebuild_post_bind_groups(&mut self) {
-        let (bg_hdr, bg_from_a, bg_from_b, bg_a_only, bg_b_only) = post::rebuild_bind_groups(
+        let (bg_hdr, bg_from_a, bg_from_b, bg_a_only) = post::rebuild_bind_groups(
             &self.device,
             &self.post,
             &self.linear_sampler,
@@ -537,6 +514,5 @@ impl<'a> GpuState<'a> {
         self.bg_from_bloom_a = bg_from_a;
         self.bg_from_bloom_b = bg_from_b;
         self.bg_bloom_a_only = bg_a_only;
-        self.bg_bloom_b_only = bg_b_only;
     }
 }

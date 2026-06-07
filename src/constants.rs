@@ -1,7 +1,6 @@
 /// Frame smoothing and interaction tuning constants.
 ///
-/// These constants express intended behavior (e.g., time constants, clamp
-/// limits) and keep magic numbers out of the code, improving readability.
+/// These constants express intended behavior (e.g., time constants, clamp limits).
 use glam::Vec3;
 
 // Exponential decay rate for internal pulse energy
@@ -42,8 +41,6 @@ pub const FX_SAT_DRIVE_MAX: f32 = 3.0;
 pub const FX_SAT_WET_BASE: f32 = 0.15;
 pub const FX_SAT_WET_SPAN: f32 = 0.85;
 
-// Visual build parameters
-
 // Per-voice spatial sends mapping
 pub const DIST_NORM_DIVISOR: f32 = 2.5;
 pub const D_SEND_BASE: f32 = 0.15;
@@ -60,8 +57,6 @@ pub const LEVEL_SPAN: f32 = 0.45;
 
 // Maximum number of concurrent in-flight notes (oscillator+gain pairs).
 pub const MAX_POLYPHONY: usize = 24;
-
-// Color adjustments
 
 // Camera
 // Z distance used by both picking and audio listener alignment.
@@ -85,11 +80,6 @@ pub const CLICK_VEL_BASE: f32 = 0.35;
 pub const CLICK_VEL_SPAN: f32 = 0.65;
 pub const CLICK_DUR_BASE_SEC: f64 = 0.35;
 pub const CLICK_DUR_SPAN_SEC: f64 = 0.25;
-
-// Swirl strength fed to the waves shader each frame
-pub const SWIRL_RENDER_STRENGTH_BASE: f32 = 0.28;
-pub const SWIRL_RENDER_STRENGTH_ENERGY: f32 = 0.85;
-pub const SWIRL_RENDER_STRENGTH_SPEED: f32 = 0.15;
 
 // Pulse clamps: accumulated per-voice energy vs. smoothed visual pulse
 pub const PULSE_ENERGY_MAX: f32 = 1.8;

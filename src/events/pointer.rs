@@ -33,11 +33,11 @@ fn wire_pointermove(w: &InputWiring) {
     let canvas_connected = w.canvas.is_connected();
 
     let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: web::PointerEvent| {
-        let pos = input::pointer_canvas_px(&ev, &w.canvas);
-
         if !canvas_connected {
             return;
         }
+
+        let pos = input::pointer_canvas_px(&ev, &w.canvas);
 
         {
             let mut ms = w.mouse_state.borrow_mut();
@@ -47,11 +47,10 @@ fn wire_pointermove(w: &InputWiring) {
 
         let (ro, rd) = render::screen_to_world_ray(&w.canvas, pos.x, pos.y, CAMERA_Z);
         let mut best = None::<(usize, f32)>;
-        let z_offset = Z_OFFSET;
 
         let engine_snapshot = w.engine.borrow();
         for (i, v) in engine_snapshot.voices.iter().enumerate() {
-            let center_world = v.position * SPREAD + z_offset;
+            let center_world = v.position * SPREAD + Z_OFFSET;
 
             if let Some(t) = input::ray_sphere(ro, rd, center_world, PICK_SPHERE_RADIUS) {
                 if t >= 0.0 {
@@ -71,11 +70,10 @@ fn wire_pointermove(w: &InputWiring) {
                 if t >= 0.0 {
                     let hit_world = ro + rd * t;
                     let mut eng_pos = (hit_world - Z_OFFSET) / SPREAD;
-                    let max_r = ENGINE_DRAG_MAX_RADIUS;
                     let len = (eng_pos.x * eng_pos.x + eng_pos.z * eng_pos.z).sqrt();
 
-                    if len > max_r {
-                        let scale = max_r / len;
+                    if len > ENGINE_DRAG_MAX_RADIUS {
+                        let scale = ENGINE_DRAG_MAX_RADIUS / len;
                         eng_pos.x *= scale;
                         eng_pos.z *= scale;
                     }
@@ -89,14 +87,7 @@ fn wire_pointermove(w: &InputWiring) {
                 }
             }
         } else {
-            match best {
-                Some((i, _t)) => {
-                    *w.hover_index.borrow_mut() = Some(i);
-                }
-                None => {
-                    *w.hover_index.borrow_mut() = None;
-                }
-            }
+            *w.hover_index.borrow_mut() = best.map(|(i, _)| i);
         }
     }) as Box<dyn FnMut(_)>);
 
@@ -156,7 +147,7 @@ fn wire_pointerup(w: &InputWiring) {
                     let norm_xs: Vec<f32> = eng
                         .voices
                         .iter()
-                        .map(|v| (v.position.x / 3.0).clamp(-1.0, 1.0) * 0.5 + 0.5)
+                        .map(|v| (v.position.x / SPREAD.x).clamp(-1.0, 1.0) * 0.5 + 0.5)
                         .collect();
                     input::nearest_index_by_uvx(&norm_xs, uvx)
                 };

@@ -23,7 +23,7 @@ pub fn scale_name(scale: &[f32]) -> &'static str {
 }
 
 #[inline]
-pub fn show(document: &web::Document) {
+fn show(document: &web::Document) {
     if let Some(el) = document.get_element_by_id("start-overlay") {
         let cl = el.class_list();
         _ = cl.remove_1("hidden");
@@ -37,13 +37,13 @@ pub fn hide(document: &web::Document) {
     if let Some(el) = document.get_element_by_id("start-overlay") {
         let cl = el.class_list();
         _ = cl.add_1("hidden");
-        // fallback
+        // fallback for environments without CSS class
         _ = el.set_attribute("style", "display:none");
     }
 }
 
 #[inline]
-pub fn is_hidden(document: &web::Document) -> bool {
+fn is_hidden(document: &web::Document) -> bool {
     if let Some(el) = document.get_element_by_id("start-overlay") {
         if el.class_list().contains("hidden") {
             return true;

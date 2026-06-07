@@ -1,4 +1,4 @@
-// Copy exists under app-web for bundling via core module include_str!
+// Bundled into the WASM binary via include_str! in src/core/mod.rs.
 // Audio-reactive ribbon/heightfield aesthetic rendered in a single fullscreen pass.
 
 struct VsOut {

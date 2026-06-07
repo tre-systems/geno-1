@@ -66,6 +66,7 @@ assertions, so it stays green in CI.
 - Typical targets:
   - `README.md`
   - `docs/SPEC.md` (when architecture/intent changes)
+  - `docs/ARCHITECTURE.md` (when code structure/patterns change)
   - `docs/TODO.md` (when priorities change)
 
 ## Git Workflow

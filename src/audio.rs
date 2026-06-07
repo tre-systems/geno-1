@@ -6,7 +6,7 @@ use std::rc::Rc;
 use web_sys as web;
 
 thread_local! {
-    static MASTER_UNMUTED_GAIN: RefCell<Option<f32>> = RefCell::new(None);
+    static MASTER_UNMUTED_GAIN: RefCell<Option<f32>> = const { RefCell::new(None) };
 }
 
 /// Toggle the master bus between muted and its previous gain (remembered across
@@ -18,11 +18,11 @@ pub fn toggle_master_mute(master_gain: &web::GainNode) -> bool {
             .with(|s| s.borrow_mut().take())
             .unwrap_or(0.25)
             .clamp(0.0, 1.0);
-        _ = master_gain.gain().set_value(restored);
+        master_gain.gain().set_value(restored);
         false
     } else {
         MASTER_UNMUTED_GAIN.with(|s| *s.borrow_mut() = Some(current));
-        _ = master_gain.gain().set_value(0.0);
+        master_gain.gain().set_value(0.0);
         true
     }
 }
@@ -96,7 +96,7 @@ pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> anyhow::Result<FxBuses> 
     {
         let sr = audio_ctx.sample_rate();
         let seconds = 5.0_f32; // lush tail
-        let len = (sr as f32 * seconds) as u32;
+        let len = (sr * seconds) as u32;
         if let Ok(ir) = audio_ctx.create_buffer(2, len, sr) {
             // simple xorshift32 for deterministic noise
             let mut seed_l: u32 = 0x1234ABCD;
@@ -104,23 +104,22 @@ pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> anyhow::Result<FxBuses> 
             for ch in 0..2 {
                 let mut buf: Vec<f32> = vec![0.0; len as usize];
                 let mut t = 0.0_f32;
-                let dt = 1.0_f32 / sr as f32;
-                for i in 0..len as usize {
+                let dt = 1.0_f32 / sr;
+                for slot in buf.iter_mut() {
                     let s = if ch == 0 { &mut seed_l } else { &mut seed_r };
                     let mut x = *s;
                     x ^= x << 13;
                     x ^= x >> 17;
                     x ^= x << 5;
                     *s = x;
-                    let n = ((x as f32 / std::u32::MAX as f32) * 2.0 - 1.0) as f32;
+                    let n = (x as f32 / u32::MAX as f32) * 2.0 - 1.0;
                     // Exponential decay envelope, dark tilt
                     let decay = (-t / 3.0).exp();
                     let dark = (1.0 - (t / seconds)).max(0.0);
-                    let v = n * decay * (0.6 + 0.4 * dark);
-                    buf[i] = v;
+                    *slot = n * decay * (0.6 + 0.4 * dark);
                     t += dt;
                 }
-                _ = ir.copy_to_channel(&mut buf, ch as i32);
+                _ = ir.copy_to_channel(&buf, ch);
             }
             reverb.set_buffer(Some(&ir));
         }
@@ -172,7 +171,8 @@ pub struct ActiveNote {
 
 /// Fire a one-shot oscillator routed through a voice's gain and sends. Returns the
 /// created nodes (and the time they stop) so the caller can disconnect them later.
-pub fn trigger_one_shot(
+#[allow(clippy::too_many_arguments)]
+fn trigger_one_shot(
     audio_ctx: &web::AudioContext,
     waveform: Waveform,
     freq: Hz,
@@ -191,8 +191,8 @@ pub fn trigger_one_shot(
     }
     src.frequency().set_value(freq.0);
     let gain = web::GainNode::new(audio_ctx).ok()?;
-    // Anchor the envelope at the scheduled start so the attack happens at `at_time`,
-    // not from "now" — essential now that notes are scheduled ahead of time.
+    // Anchor the envelope at `at_time` (the scheduled start) so the attack fires at the
+    // right moment, not from the AudioContext's current time.
     gain.gain().set_value(0.0);
     let t0 = at_time;
     _ = gain.gain().set_value_at_time(0.0, t0);
@@ -263,7 +263,8 @@ pub fn spawn_note(
     }
 }
 
-// Create analyser and an appropriately sized buffer
+/// Create an analyser node and a buffer sized to its frequency-bin count, used to
+/// drive ambient visuals from the audio output.
 pub fn create_analyser(
     audio_ctx: &web::AudioContext,
 ) -> (Option<web::AnalyserNode>, Rc<RefCell<Vec<f32>>>) {
@@ -279,7 +280,8 @@ pub fn create_analyser(
     (analyser, buf)
 }
 
-// Wire per-voice panners, gains and effect sends
+/// Wire each voice's panner (HRTF, inverse-distance), gain, and delay/reverb sends,
+/// returning the per-voice nodes the frame loop positions each frame.
 pub fn wire_voices(
     audio_ctx: &web::AudioContext,
     initial_positions: &[Vec3],
@@ -299,9 +301,9 @@ pub fn wire_voices(
         panner.set_distance_model(web::DistanceModelType::Inverse);
         panner.set_ref_distance(0.5);
         panner.set_max_distance(50.0);
-        panner.position_x().set_value(pos.x as f32);
-        panner.position_y().set_value(pos.y as f32);
-        panner.position_z().set_value(pos.z as f32);
+        panner.position_x().set_value(pos.x);
+        panner.position_y().set_value(pos.y);
+        panner.position_z().set_value(pos.z);
 
         let gain = create_gain(audio_ctx, 0.0, "Voice gain")?;
         _ = gain.connect_with_audio_node(&panner);

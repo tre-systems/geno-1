@@ -10,11 +10,10 @@ pub fn window_document() -> Option<web::Document> {
 pub fn add_click_listener(
     document: &web::Document,
     element_id: &str,
-    mut handler: impl FnMut() + 'static,
+    handler: impl FnMut() + 'static,
 ) {
     if let Some(el) = document.get_element_by_id(element_id) {
-        let closure =
-            wasm_bindgen::closure::Closure::wrap(Box::new(move || handler()) as Box<dyn FnMut()>);
+        let closure = wasm_bindgen::closure::Closure::wrap(Box::new(handler) as Box<dyn FnMut()>);
         _ = el.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref());
         closure.forget();
     }

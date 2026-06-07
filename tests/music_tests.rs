@@ -88,7 +88,6 @@ fn engine_toggle_mute_and_solo() {
     }
 }
 
-// Property-based tests for midi_to_hz function
 #[test]
 fn midi_to_hz_octave_doubling_property() {
     // Property: Adding 12 semitones (one octave) should double the frequency
@@ -178,7 +177,6 @@ fn midi_to_hz_negative_values() {
     );
 }
 
-// Microtonality tests
 #[test]
 fn midi_to_hz_with_detune_accuracy() {
     // Test that 50¢ detune produces correct frequency ratio
@@ -199,8 +197,6 @@ fn midi_to_hz_with_detune_accuracy() {
 #[test]
 fn midi_to_hz_with_detune_bounds() {
     // Test that detune is properly clamped to ±200¢
-    // C4 baseline (not used directly in assertions but kept for clarity)
-    // Test extreme values
     let extreme_high = midi_to_hz_with_detune(60.0, 500.0); // Should clamp to +200¢
     let extreme_low = midi_to_hz_with_detune(60.0, -500.0); // Should clamp to -200¢
 
@@ -229,7 +225,6 @@ fn engine_params_detune_default() {
 fn engine_detune_methods() {
     let mut engine = make_engine();
 
-    // Test set_detune_cents
     engine.set_detune_cents(Cents(50.0));
     assert_eq!(engine.params.detune.0, 50.0, "set_detune_cents should work");
 
@@ -246,14 +241,12 @@ fn engine_detune_methods() {
         "set_detune_cents should clamp to -200¢"
     );
 
-    // Test adjust_detune_cents
     engine.adjust_detune_cents(Cents(25.0));
     assert_eq!(
         engine.params.detune.0, -175.0,
         "adjust_detune_cents should work"
     );
 
-    // Test reset_detune
     engine.reset_detune();
     assert_eq!(engine.params.detune.0, 0.0, "reset_detune should work");
 }
@@ -332,7 +325,6 @@ fn engine_schedule_with_detune() {
 fn detune_round_trip_accuracy() {
     // Test that detune can be applied and removed accurately
     let midi_60 = 60.0; // C4
-    let _base_freq = midi_to_hz(midi_60);
 
     // Apply various detune values and verify accuracy
     for detune in [-100.0, -50.0, -25.0, 0.0, 25.0, 50.0, 100.0] {
@@ -343,14 +335,6 @@ fn detune_round_trip_accuracy() {
         let detune_semitones = detune / 100.0;
         let adjusted_midi = midi_60 + detune_semitones;
         let expected_freq = midi_to_hz(adjusted_midi);
-
-        println!(
-            "Detune: {}¢, Expected: {:.6}, Actual: {:.6}, Diff: {:.6}",
-            detune,
-            expected_freq,
-            detuned_freq,
-            (detuned_freq - expected_freq).abs()
-        );
 
         assert!(
             (detuned_freq - expected_freq).abs() < 1e-6,
@@ -374,7 +358,7 @@ fn engine_step_sequence_is_a_stable_snapshot() {
         .collect();
     let head: Vec<(usize, u32)> = seq.iter().take(8).copied().collect();
 
-    // Golden for seed 42 over 64 grid steps (bootstrap value below).
+    // Golden sequence for seed 42 over 64 grid steps.
     assert_eq!(
         head,
         vec![

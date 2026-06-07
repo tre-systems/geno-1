@@ -1,6 +1,4 @@
-use wgpu;
-
-pub fn create_color_texture_device(
+pub(crate) fn create_color_texture(
     device: &wgpu::Device,
     label: &str,
     width: u32,
@@ -26,18 +24,7 @@ pub fn create_color_texture_device(
     (tex, view)
 }
 
-pub fn create_color_texture(
-    device: &wgpu::Device,
-    label: &str,
-    width: u32,
-    height: u32,
-    format: wgpu::TextureFormat,
-    usage: wgpu::TextureUsages,
-) -> (wgpu::Texture, wgpu::TextureView) {
-    create_color_texture_device(device, label, width, height, format, usage)
-}
-
-pub fn make_post_pipeline(
+pub(crate) fn make_post_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,

@@ -4,7 +4,6 @@
 
 # wasm-pack output
 /pkg
-crates/**/pkg
 wasm-pack.log
 
 # Node
@@ -15,7 +14,6 @@ yarn-error.log
 
 # Build outputs
 /dist
-crates/**/dist
 
 # OS
 .DS_Store

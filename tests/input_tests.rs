@@ -2,11 +2,9 @@ use app_web::input::{nearest_index_by_uvx, ray_sphere};
 
 #[test]
 fn ray_sphere_intersection_basic() {
-    // Ray from origin pointing in +Z direction
     let ray_origin = glam::Vec3::ZERO;
     let ray_dir = glam::Vec3::new(0.0, 0.0, 1.0);
 
-    // Sphere at (0, 0, 5) with radius 2
     let center = glam::Vec3::new(0.0, 0.0, 5.0);
     let radius = 2.0;
 
@@ -20,11 +18,10 @@ fn ray_sphere_intersection_basic() {
 
 #[test]
 fn ray_sphere_intersection_miss() {
-    // Ray from origin pointing in +X direction
     let ray_origin = glam::Vec3::ZERO;
     let ray_dir = glam::Vec3::new(1.0, 0.0, 0.0);
 
-    // Sphere at (0, 0, 5) with radius 2 (ray goes in X, sphere is in Z)
+    // Ray travels in X while the sphere sits in Z, so they never intersect.
     let center = glam::Vec3::new(0.0, 0.0, 5.0);
     let radius = 2.0;
 
@@ -34,11 +31,10 @@ fn ray_sphere_intersection_miss() {
 
 #[test]
 fn ray_sphere_intersection_tangent() {
-    // Ray from origin pointing in +Z direction
     let ray_origin = glam::Vec3::ZERO;
     let ray_dir = glam::Vec3::new(0.0, 0.0, 1.0);
 
-    // Sphere at (2, 0, 5) with radius 2 (ray goes through edge)
+    // Offset sphere so the ray grazes its edge (tangent).
     let center = glam::Vec3::new(2.0, 0.0, 5.0);
     let radius = 2.0;
 
@@ -51,11 +47,10 @@ fn ray_sphere_intersection_tangent() {
 
 #[test]
 fn ray_sphere_intersection_inside() {
-    // Ray from inside sphere pointing outward
+    // Ray starts inside the sphere, pointing outward.
     let ray_origin = glam::Vec3::new(0.0, 0.0, 5.0);
     let ray_dir = glam::Vec3::new(1.0, 0.0, 0.0);
 
-    // Sphere at (0, 0, 5) with radius 3
     let center = glam::Vec3::new(0.0, 0.0, 5.0);
     let radius = 3.0;
 
@@ -74,7 +69,6 @@ fn ray_sphere_intersection_inside() {
 fn nearest_index_by_uvx_basic() {
     let voice_xs = vec![0.1, 0.3, 0.5, 0.7, 0.9];
 
-    // Test exact matches
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.1), 0);
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.3), 1);
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.5), 2);
@@ -86,7 +80,6 @@ fn nearest_index_by_uvx_basic() {
 fn nearest_index_by_uvx_interpolation() {
     let voice_xs = vec![0.1, 0.3, 0.5, 0.7, 0.9];
 
-    // Test interpolation cases
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.2), 0); // Closer to 0.1
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.4), 1); // Closer to 0.3
                                                          // 0.6 is equidistant between 0.5 and 0.7, so result depends on iteration order
@@ -112,7 +105,6 @@ fn nearest_index_by_uvx_interpolation() {
 fn nearest_index_by_uvx_edge_cases() {
     let voice_xs = vec![0.1, 0.3, 0.5, 0.7, 0.9];
 
-    // Test edge cases
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.0), 0); // Below range
     assert_eq!(nearest_index_by_uvx(&voice_xs, 1.0), 4); // Above range
     assert_eq!(nearest_index_by_uvx(&voice_xs, 0.05), 0); // Very close to 0.1

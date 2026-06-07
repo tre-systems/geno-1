@@ -1,5 +1,4 @@
 use super::helpers;
-use wgpu;
 
 /// Offscreen color targets for the render pipeline.
 ///
