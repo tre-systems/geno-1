@@ -12,6 +12,10 @@ updates per-voice spatial audio, and renders an audio-reactive wave field with W
 (engine, key maps, picking, the key→command mapping) is plain host-testable Rust; everything
 browser-facing is gated to the wasm target.
 
+![System overview](diagrams/system-overview.png)
+
+_Diagrams (Graphviz sources + rendered PNGs) live in [diagrams/](diagrams/README.md)._
+
 ## Core Patterns
 
 Geno-1 is small, but it leans on a consistent set of patterns. Knowing these explains most of the
@@ -58,6 +62,8 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 
 ### The frame loop (`frame.rs`)
 
+![Frame pipeline](diagrams/frame-pipeline.png)
+
 - **Named, ordered systems.** [`FrameContext::frame`](../src/frame.rs) is an explicit pipeline of named
   methods run in a fixed order: `apply_input_commands` → `advance_music` → `update_pulses` →
   `update_swirl_and_fx` → `update_spatial_audio` → `update_ambient` → `render_scene` →
@@ -85,6 +91,8 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 
 ### Audio graph (`audio.rs`)
 
+See the [audio graph diagram](diagrams/audio-graph.png) for the full signal flow.
+
 - **Construction via factories returning bundle structs.** [`build_fx_buses`](../src/audio.rs) →
   `FxBuses`, [`wire_voices`](../src/audio.rs) → `VoiceRouting`, and [`create_analyser`](../src/audio.rs)
   build the Web Audio graph once and return a struct of the nodes the frame loop later modulates.
@@ -99,6 +107,8 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   is bounded and explicit rather than left to the GC.
 
 ### Rendering (`render/`)
+
+See the [render pipeline diagram](diagrams/render-pipeline.png) for the passes.
 
 - **Resource-bundle structs + factories** (the GPU mirror of the audio side):
   [`WavesResources` / `create_waves_resources`](../src/render/waves.rs), `PostResources`,

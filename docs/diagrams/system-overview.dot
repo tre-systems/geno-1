@@ -1,0 +1,116 @@
+digraph SystemOverview {
+  graph [
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.55",
+    nodesep="0.55",
+    ranksep="0.85",
+    splines=polyline,
+    outputorder=edgesfirst,
+    compound=true,
+    newrank=true,
+    forcelabels=true,
+    fontname="Avenir",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+        <TR><TD><FONT POINT-SIZE="34"><B>System Overview</B></FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc=t,
+    labeljust=c
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    margin="0.21,0.13",
+    width=3.05,
+    height=0.74,
+    fixedsize=false,
+    fontname="Avenir",
+    fontsize=18,
+    penwidth=2.4,
+    fontcolor="#14213d",
+    color="#2264c7",
+    fillcolor="#eaf3ff:#ffffff",
+    gradientangle=270
+  ];
+
+  edge [
+    color="#263a59",
+    fontname="Avenir",
+    fontsize=13,
+    fontcolor="#3d4a5c",
+    penwidth=2.2,
+    arrowsize=0.78
+  ];
+
+  // ---- Browser ----
+  subgraph cluster_browser {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1f5fbf"><B>BROWSER</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#496f9f">Desktop browser with WebGPU; no WebGL fallback.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#b9d8ff", fillcolor="#f5faff",
+      style="rounded,filled", penwidth=1.8, margin=22
+    ];
+
+    B1 [label=<<B>Canvas</B><BR/><FONT POINT-SIZE="15">#app-canvas: WebGPU surface +<BR/>pointer / keyboard target</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B2 [label=<<B>Overlay DOM</B><BR/><FONT POINT-SIZE="15">start / help panel, hint readout</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B3 [label=<<B>Speakers</B><BR/><FONT POINT-SIZE="15">AudioContext.destination</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+  }
+
+  // ---- The app-web crate (Rust -> WASM) ----
+  subgraph cluster_app {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1e6b43"><B>app-web  (Rust → WebAssembly)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">Single crate. Green = host-testable core; amber = the per-frame loop.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#cdebd7", fillcolor="#fbfefc",
+      style="rounded,filled", penwidth=1.8, margin=22
+    ];
+
+    A1 [label=<<B>wasm_app::start</B><BR/><FONT POINT-SIZE="15">entry: build graph, wire input</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A2 [label=<<B>Input → command queue</B><BR/><FONT POINT-SIZE="15">events::command (host-tested map)</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A3 [label=<<B>Frame loop</B><BR/><FONT POINT-SIZE="15">requestAnimationFrame; ordered systems</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00", penwidth=3.0];
+    A4 [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="15">core: seeded, deterministic</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A5 [label=<<B>Web Audio graph</B><BR/><FONT POINT-SIZE="15">voices, panners, FX buses</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    A6 [label=<<B>WebGPU renderer</B><BR/><FONT POINT-SIZE="15">waves + bloom + post (WGSL)</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+
+    A1 -> A3 [label="start RAF"];
+    A1 -> A4 [style=invis];
+    A2 -> A3 [label="enqueue"];
+    A3 -> A4 [label="tick → note events"];
+    A3 -> A5 [label="trigger notes,\nmodulate FX"];
+    A3 -> A6 [label="render frame"];
+  }
+
+  // ---- Hosting ----
+  subgraph cluster_host {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1f5fbf"><B>HOSTING</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#496f9f">Cloudflare Workers static assets at geno-1.tre.systems.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#b9d8ff", fillcolor="#f5faff",
+      style="rounded,filled", penwidth=1.8, margin=22
+    ];
+
+    H1 [label=<<B>Worker</B><BR/><FONT POINT-SIZE="15">worker.js: serves dist/ with<BR/>cache-control + SPA routing</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+  }
+
+  // ---- Cross-cluster edges ----
+  H1 -> B1 [label="serves index.html + wasm", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+  B2 -> A2 [label="pointer / keydown", lhead=cluster_app];
+  A6 -> B1 [label="present", ltail=cluster_app];
+  A5 -> B3 [label="audio out", ltail=cluster_app];
+  A1 -> B2 [label="audio-init / WebGPU errors", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+}

@@ -67,57 +67,9 @@ The audio engine produces continuous music from three voices with distinct timbr
 (bass / mid / high). It generates notes procedurally rather than playing recordings. Each note event
 carries voice, frequency, velocity, start time, and duration.
 
-```mermaid
-graph TD
-  %% Audio pipeline (Web)
-  subgraph "Music Generation & Shared State"
-    A["MusicEngine\n(eighth-note scheduler, BPM, scale)"]
-    B["Shared Voice State\npositions • mute/solo"]
-    A --> C["NoteEvent(s)\nvoice, freq, velocity, start, duration"]
-    B -.-> D["Voice Positions\n(x,y,z)"]
-  end
+![Audio graph](diagrams/audio-graph.png)
 
-  %% Web Audio path
-  subgraph "Audio"
-    %% Per-note source and per-voice strip
-    C --> N1["OscillatorNode\n(per-note, per-voice waveform)"]
-    N1 --> V1["GainNode (env)\n(attack/release)"]
-    V1 --> VG["Voice Gain"]
-    VG --> P["PannerNode\n(HRTF positional)"]
-    D -.-> P
-    P --> M["Master Gain bus"]
-
-    %% Pre-panner effect sends (per voice)
-    V1 -.-> DS["Delay Send"]
-    V1 -.-> RS["Reverb Send"]
-    DS --> DI["Delay In"]
-    RS --> RI["Reverb In"]
-
-    %% Delay bus with feedback and tone shaping
-    DI --> DL["DelayNode"]
-    DL --> LT["Biquad Lowpass\n(tone)"]
-    LT --> DF["Delay Feedback"]
-    DF --> DL
-    LT --> DW["Delay Wet"]
-    DW --> M
-
-    %% Reverb bus
-    RI --> CV["ConvolverNode\n(impulse)"]
-    CV --> RW["Reverb Wet"]
-    RW --> M
-
-    %% Master saturation and output (wet/dry mix)
-    M --> SP["Sat Pre Gain"]
-    SP --> WS["WaveShaperNode\n(arctan)"]
-    WS --> SW["Sat Wet"]
-    SW --> DEST["AudioContext.destination"]
-    M --> SD["Sat Dry"]
-    SD --> DEST
-
-    %% Optional analyser tap (for visuals only)
-    M -.-> AN["AnalyserNode (optional)"]
-  end
-```
+_Source: [`diagrams/audio-graph.dot`](diagrams/audio-graph.dot) — see [diagrams/](diagrams/README.md)._
 
 Key behaviours:
 
@@ -150,34 +102,9 @@ The visual engine renders a real-time scene with WebGPU that represents the musi
 renderer is split into small modules: `render/targets.rs` (offscreen targets), `render/waves.rs`
 (fullscreen waves pass), `render/post.rs` (post pipelines and bind groups), and `render/helpers.rs`.
 
-```mermaid
-graph TD
-  %% Visual pipeline
-  subgraph "Input & Audio Reactivity"
-    I1["Pointer / Keyboard events"]
-    I2["NoteEvent Pulses\n(per voice velocity → pulse)"]
-    I3["Shared Voice State\npositions • colors • pulses"]
-    I1 -->|drag, click, keys| I3
-    I2 -->|on note| I3
-  end
+![Render pipeline](diagrams/render-pipeline.png)
 
-  subgraph "Rendering"
-    R0["WGPU Device + Surface"]
-    R1["Ambient Waves (waves.wgsl)\nFullscreen pass; swirl, voice displacement, ripple"]
-    R2["Post Stack (post.wgsl)\nBright pass → Separable blur → Composite\nACES tonemap, vignette, grain"]
-    R3["Swapchain Present"]
-    I3 -.->|uniforms per frame| R1
-    R1 --> R2
-    R2 --> R3
-  end
-
-  subgraph "Browser specifics"
-    WGPU["WebGPU on Canvas"]
-    AC["AudioListener tied to camera"]
-    R0 --> WGPU
-    I3 -.-> AC
-  end
-```
+_Source: [`diagrams/render-pipeline.dot`](diagrams/render-pipeline.dot) — see [diagrams/](diagrams/README.md)._
 
 Key behaviours:
 

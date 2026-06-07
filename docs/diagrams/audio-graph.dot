@@ -1,0 +1,122 @@
+digraph AudioGraph {
+  graph [
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.55",
+    nodesep="0.5",
+    ranksep="0.7",
+    splines=polyline,
+    outputorder=edgesfirst,
+    compound=true,
+    newrank=true,
+    forcelabels=true,
+    fontname="Avenir",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+        <TR><TD><FONT POINT-SIZE="34"><B>Audio Graph</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="15" COLOR="#357a74">Per-note source → voice strip → master, with reverb / delay sends and master saturation.</FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc=t,
+    labeljust=c
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    margin="0.2,0.12",
+    width=2.55,
+    height=0.68,
+    fixedsize=false,
+    fontname="Avenir",
+    fontsize=17,
+    penwidth=2.4,
+    fontcolor="#14213d",
+    color="#0f766e",
+    fillcolor="#e6fffb:#ffffff",
+    gradientangle=270
+  ];
+
+  edge [
+    color="#235e58",
+    fontname="Avenir",
+    fontsize=13,
+    fontcolor="#3d4a5c",
+    penwidth=2.2,
+    arrowsize=0.78
+  ];
+
+  // ---- Source (engine, host-testable) ----
+  ENG [label=<<B>MusicEngine.tick</B><BR/><FONT POINT-SIZE="14">NoteEvent: voice, freq, vel, dur</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+
+  // ---- Per-voice strip ----
+  subgraph cluster_voice {
+    graph [
+      label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>PER-NOTE STRIP</B></FONT></TD></TR></TABLE>>,
+      labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
+    ];
+    OSC [label=<<B>OscillatorNode</B><BR/><FONT POINT-SIZE="14">per-voice waveform</FONT>>];
+    ENV [label=<<B>GainNode (env)</B><BR/><FONT POINT-SIZE="14">attack / release</FONT>>];
+    VG  [label=<<B>Voice gain</B><BR/><FONT POINT-SIZE="14">distance level</FONT>>];
+    PAN [label=<<B>PannerNode</B><BR/><FONT POINT-SIZE="14">HRTF positional</FONT>>];
+    OSC -> ENV -> VG -> PAN;
+  }
+
+  // ---- Delay bus ----
+  subgraph cluster_delay {
+    graph [
+      label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>DELAY BUS</B></FONT></TD></TR></TABLE>>,
+      labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
+    ];
+    DS [label=<<B>Delay send</B>>];
+    DL [label=<<B>DelayNode</B><BR/><FONT POINT-SIZE="14">0.55 s</FONT>>];
+    LT [label=<<B>Biquad lowpass</B><BR/><FONT POINT-SIZE="14">tone</FONT>>];
+    DF [label=<<B>Delay feedback</B>>];
+    DW [label=<<B>Delay wet</B>>];
+    DS -> DL -> LT;
+    LT -> DF -> DL [label="feedback"];
+    LT -> DW;
+  }
+
+  // ---- Reverb bus ----
+  subgraph cluster_reverb {
+    graph [
+      label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>REVERB BUS</B></FONT></TD></TR></TABLE>>,
+      labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
+    ];
+    RS [label=<<B>Reverb send</B>>];
+    CV [label=<<B>ConvolverNode</B><BR/><FONT POINT-SIZE="14">5 s procedural IR</FONT>>];
+    RW [label=<<B>Reverb wet</B>>];
+    RS -> CV -> RW;
+  }
+
+  // ---- Master + saturation ----
+  subgraph cluster_master {
+    graph [
+      label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>MASTER + SATURATION</B></FONT></TD></TR></TABLE>>,
+      labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
+    ];
+    MAS [label=<<B>Master gain</B>>, penwidth=3.0];
+    SP  [label=<<B>Sat pre</B>>];
+    WS  [label=<<B>WaveShaperNode</B><BR/><FONT POINT-SIZE="14">arctan drive</FONT>>];
+    SW  [label=<<B>Sat wet</B>>];
+    SD  [label=<<B>Sat dry</B>>];
+    MAS -> SP -> WS -> SW;
+    MAS -> SD;
+  }
+
+  // ---- Outputs ----
+  DEST [label=<<B>AudioContext.destination</B>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+  AN   [label=<<B>AnalyserNode</B><BR/><FONT POINT-SIZE="14">optional, drives visuals</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+
+  // ---- Cross-cluster wiring ----
+  ENG -> OSC [label="spawn per note", lhead=cluster_voice];
+  PAN -> MAS [label="dry voice", lhead=cluster_master];
+  ENV -> DS  [label="send", style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_delay];
+  ENV -> RS  [label="send", style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_reverb];
+  DW  -> MAS [ltail=cluster_delay, lhead=cluster_master];
+  RW  -> MAS [ltail=cluster_reverb, lhead=cluster_master];
+  SW  -> DEST;
+  SD  -> DEST;
+  MAS -> AN [label="tap", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+}

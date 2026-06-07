@@ -1,0 +1,116 @@
+digraph FramePipeline {
+  graph [
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.55",
+    nodesep="0.5",
+    ranksep="0.6",
+    splines=polyline,
+    outputorder=edgesfirst,
+    compound=true,
+    newrank=true,
+    forcelabels=true,
+    fontname="Avenir",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+        <TR><TD><FONT POINT-SIZE="34"><B>Frame Pipeline</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="15" COLOR="#4e7a61">One requestAnimationFrame tick: drain input, then run the ordered systems.</FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc=t,
+    labeljust=c
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    margin="0.21,0.13",
+    width=2.95,
+    height=0.66,
+    fixedsize=false,
+    fontname="Avenir",
+    fontsize=18,
+    penwidth=2.4,
+    fontcolor="#14213d",
+    color="#2264c7",
+    fillcolor="#eaf3ff:#ffffff",
+    gradientangle=270
+  ];
+
+  edge [
+    color="#263a59",
+    fontname="Avenir",
+    fontsize=13,
+    fontcolor="#3d4a5c",
+    penwidth=2.2,
+    arrowsize=0.78
+  ];
+
+  // ---- Input (event closures enqueue; never mutate state) ----
+  subgraph cluster_input {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1e6b43"><B>INPUT (event closures)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">Map raw events to commands and enqueue; no direct state mutation.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#b8e5c8", fillcolor="#f4fbf6",
+      style="rounded,filled", penwidth=1.8, margin=20
+    ];
+
+    K [label=<<B>keydown</B><BR/><FONT POINT-SIZE="15">command_for_key</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P [label=<<B>pointer up / move</B><BR/><FONT POINT-SIZE="15">voice click, play, drag, ripple</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    Q [label=<<B>Command queue</B><BR/><FONT POINT-SIZE="15">VecDeque&lt;InputCommand&gt;</FONT>>, shape=cylinder, fillcolor="#eaf8ef:#ffffff", color="#22865a", height=0.9];
+
+    K -> Q;
+    P -> Q;
+  }
+
+  // ---- frame(): ordered systems ----
+  subgraph cluster_frame {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#9a7400"><B>frame()  —  ordered systems</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#a98a3a">Fixed order is the contract; each step reads the shared state it needs.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#f3dd9a", fillcolor="#fffdf5",
+      style="rounded,filled", penwidth=1.8, margin=20
+    ];
+
+    F1 [label=<<B>apply_input_commands</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F2 [label=<<B>advance_music</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F3 [label=<<B>update_pulses</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F4 [label=<<B>update_swirl_and_fx</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F5 [label=<<B>update_spatial_audio</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F6 [label=<<B>update_ambient</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F7 [label=<<B>render_scene</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    F8 [label=<<B>trigger_scheduled_notes</B>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+
+    F1 -> F2 -> F3 -> F4 -> F5 -> F6 -> F7 -> F8;
+  }
+
+  // ---- Shared state / resources ----
+  E  [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="15">params, voices, seeded RNGs</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  AU [label=<<B>Web Audio graph</B><BR/><FONT POINT-SIZE="15">panners, sends, FX buses</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  NP [label=<<B>Note pool</B><BR/><FONT POINT-SIZE="15">active_notes (reap + cap)</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  G  [label=<<B>WebGPU renderer</B><BR/><FONT POINT-SIZE="15">waves + bloom + post</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+
+  { rank=same; F1; E; }
+  { rank=same; F7; G; }
+  { rank=same; F8; NP; }
+
+  // ---- Cross edges ----
+  Q -> F1 [label="drain", lhead=cluster_frame];
+  F1 -> E  [label="root / mode / tempo / mute…", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+  F1 -> AU [label="volume / mute", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+  F2 -> E  [label="tick → note events", dir=both];
+  F4 -> AU [label="reverb / delay / saturation", constraint=false];
+  F5 -> AU [label="panner pos + sends", constraint=false];
+  F6 -> G  [label="ambient clear", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+  F7 -> G  [label="swirl, ripple, render"];
+  F8 -> NP [label="spawn / reap"];
+  NP -> AU [label="oscillator + gain", style=dashed, color="#6b7280", fontcolor="#6b7280"];
+}

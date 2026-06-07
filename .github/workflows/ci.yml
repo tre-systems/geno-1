@@ -39,11 +39,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install system deps (Chromium + ALSA)
+      - name: Install system deps (Chromium + ALSA + Graphviz)
         run: |
           sudo apt-get update
-          # Common Chromium deps for Puppeteer
-          sudo apt-get install -y libgtk-3-0 libgbm1
+          # Chromium deps for Puppeteer, plus Graphviz for the diagram render check
+          sudo apt-get install -y libgtk-3-0 libgbm1 graphviz
       - name: Install wasm-pack
         run: curl -sSfL https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
 

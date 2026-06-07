@@ -1,0 +1,88 @@
+digraph RenderPipeline {
+  graph [
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.55",
+    nodesep="0.5",
+    ranksep="0.62",
+    splines=polyline,
+    outputorder=edgesfirst,
+    compound=true,
+    newrank=true,
+    forcelabels=true,
+    fontname="Avenir",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+        <TR><TD><FONT POINT-SIZE="34"><B>Render Pipeline</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="15" COLOR="#6d4d8d">Fullscreen waves → HDR, then bloom (ping-pong) and an ACES composite to the swapchain.</FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc=t,
+    labeljust=c
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    margin="0.21,0.13",
+    width=2.85,
+    height=0.68,
+    fixedsize=false,
+    fontname="Avenir",
+    fontsize=18,
+    penwidth=2.4,
+    fontcolor="#14213d",
+    color="#7c3aed",
+    fillcolor="#f5f3ff:#ffffff",
+    gradientangle=270
+  ];
+
+  edge [
+    color="#4b3a63",
+    fontname="Avenir",
+    fontsize=13,
+    fontcolor="#3d4a5c",
+    penwidth=2.2,
+    arrowsize=0.78
+  ];
+
+  // ---- Per-frame inputs (from the frame loop) ----
+  IN [label=<<B>Frame uniforms</B><BR/><FONT POINT-SIZE="14">voice pos + pulse, swirl, ripple,<BR/>ambient energy, time</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+
+  // ---- GPU passes ----
+  subgraph cluster_passes {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#5f3b8a"><B>WebGPU PASSES</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#6d4d8d">Cylinders are render targets; boxes are fragment passes (WGSL).</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l, color="#d6c6ee", fillcolor="#fbf8ff",
+      style="rounded,filled", penwidth=1.8, margin=20
+    ];
+
+    WAVES [label=<<B>Waves pass</B><BR/><FONT POINT-SIZE="14">waves.wgsl: noise sheets,<BR/>swirl, voice displacement, ripple</FONT>>];
+    HDR   [label=<<B>HDR target</B><BR/><FONT POINT-SIZE="14">Rgba16Float, full-res</FONT>>, shape=cylinder, height=0.95, fillcolor="#efe9fb:#ffffff"];
+    BRIGHT[label=<<B>Bright pass</B><BR/><FONT POINT-SIZE="14">threshold extract</FONT>>];
+    BLA   [label=<<B>bloom_a</B><BR/><FONT POINT-SIZE="14">half-res</FONT>>, shape=cylinder, height=0.85, fillcolor="#efe9fb:#ffffff"];
+    BLURH [label=<<B>Blur H</B>>];
+    BLB   [label=<<B>bloom_b</B><BR/><FONT POINT-SIZE="14">half-res</FONT>>, shape=cylinder, height=0.85, fillcolor="#efe9fb:#ffffff"];
+    BLURV [label=<<B>Blur V</B>>];
+    COMP  [label=<<B>Composite</B><BR/><FONT POINT-SIZE="14">post.wgsl: ACES tonemap,<BR/>exposure, vignette, grain</FONT>>, penwidth=3.0];
+
+    WAVES -> HDR;
+    HDR -> BRIGHT;
+    BRIGHT -> BLA;
+    BLA -> BLURH -> BLB -> BLURV;
+    BLURV -> BLA [label="ping-pong", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+    HDR -> COMP [label="scene", constraint=false];
+    BLA -> COMP [label="bloom"];
+  }
+
+  // ---- Output ----
+  SWAP [label=<<B>Swapchain present</B><BR/><FONT POINT-SIZE="14">sRGB</FONT>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+
+  IN -> WAVES [label="per-frame uniforms", lhead=cluster_passes];
+  COMP -> SWAP [ltail=cluster_passes];
+}
