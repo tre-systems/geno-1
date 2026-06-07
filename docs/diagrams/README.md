@@ -29,7 +29,6 @@ Graphviz/DOT is used for these graphs. Color coding by domain:
 - **Teal** — the Web Audio node graph (voices, panners, FX buses, the note pool).
 - **Purple** — WebGPU passes and WGSL shaders; cylinders are GPU render targets.
 - **Blue** — browser surface (canvas, DOM, events), hosting, and external endpoints.
-- Diamonds — decisions.
 - Bold green outline — a terminal output (e.g. `AudioContext.destination`, swapchain present).
 - Dashed grey edges — secondary or optional relationships (sends, taps, error paths).
 

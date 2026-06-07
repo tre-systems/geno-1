@@ -32,16 +32,9 @@ This file is intentionally tool-neutral and should be usable by both GPT Codex a
 
 Use the smallest reliable gate during development, then run the full gate before push:
 
-- Fast path (small/local change): `npm run check:rust`
-- Full path (behaviour/audio/render/input/deploy changes): `npm run check`
-
-Expected checks:
-
-- `cargo fmt --check`
-- `cargo clippy -- -D warnings`
-- `cargo test`
-- production wasm build (`wasm-pack`)
-- browser integration test (`web-test.js`, Puppeteer)
+- Fast path (small/local change): `npm run check:rust` — Rust fmt, clippy `-D warnings`, and tests.
+- Full path (behaviour/audio/render/input/deploy changes): `npm run check` — adds the Graphviz
+  diagram render check, the production `wasm-pack` build, and the headless Puppeteer test (`web-test.js`).
 
 The web test tolerates a headless environment without WebGPU by skipping engine-coupled
 assertions, so it stays green in CI.

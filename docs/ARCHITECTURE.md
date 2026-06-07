@@ -47,7 +47,7 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 - **Pure functions for math/lookup.** [`midi_to_hz`](../src/core/music.rs),
   [`ray_sphere` / `nearest_index_by_uvx`](../src/input.rs), [`screen_to_world_ray`](../src/camera.rs),
   [`root_midi_for_key` / `mode_scale_for_digit`](../src/events/keymap.rs), and
-  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 35 host tests also include
+  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 36 host tests also include
   a golden snapshot of the engine's seeded note sequence and `naga` validation of the WGSL shaders.
 
 ### Input
@@ -80,10 +80,10 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   methods run in a fixed order: `apply_input_commands` → `update_pulses` → `update_swirl_and_fx` →
   `update_spatial_audio` → `update_ambient` → `render_scene`. The ordering is the contract; each system
   reads the shared state it needs. (Note generation lives in the scheduler above, not here.)
-- **Interior mutability with scoped borrows.** Shared state (`engine`, `paused`, `input_queue`,
-  `pulses`, `hover_index`, `drag_state`) is `Rc<RefCell<_>>` shared between the RAF loop and the event
-  closures. Borrows are deliberately scoped and dropped before re-borrowing or calling out — the
-  single-threaded discipline that keeps `RefCell` from panicking.
+- **Interior mutability with scoped borrows.** Shared mutable state — the engine, `paused`, the input
+  queue, the visual `pulses`, and the pointer's hover/drag state — is held in `Rc<RefCell<_>>` and
+  shared between the RAF loop and the event closures. Borrows are deliberately scoped and dropped before
+  re-borrowing or calling out — the single-threaded discipline that keeps `RefCell` from panicking.
 
 ### WASM runtime & shared state
 

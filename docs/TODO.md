@@ -62,7 +62,7 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
 - Migrate the browser smoke test from Puppeteer to Playwright (consistency with the other projects;
   enables visual / snapshot tests).
 - Cross-browser WebGPU checks (Chrome / Edge, and Firefox once supported). The app is WebGPU-only by
-  design (no WebGL fallback) — a deliberate reach limitation worth stating in the README.
+  design (no WebGL fallback).
 
 ## Maintenance
 

@@ -51,17 +51,16 @@ This document describes how the system is built. For the code-level patterns and
 
 ## System Architecture
 
-The system has three subsystems that share memory in a single WASM module, driven by two loops:
+The system has three subsystems that share memory in a single WASM module:
 
 1. **Audio engine** — generates note events and renders sound with spatial effects.
 2. **Visual engine** — renders the wave field and post-processing stack with WebGPU.
 3. **Interaction module** — translates keyboard and pointer input into engine and audio changes.
 
-A lookahead scheduler (`src/scheduler.rs`) on a `setInterval` advances the engine one grid step at a
-time and schedules notes ahead on the `AudioContext` clock. A `requestAnimationFrame` loop
-(`src/frame.rs`) applies queued input, modulates the global FX from pointer "swirl" energy, updates
-per-voice spatialisation, and renders a frame. The scheduler hands the frame a queue of timed visual
-pulses, so the visuals react — in sync — to the same notes that produce sound.
+Two loops drive these subsystems — a lookahead audio-clock scheduler for generation and a
+`requestAnimationFrame` loop for input, FX, spatialisation, and rendering — and the scheduler hands the
+frame timed visual pulses so visuals stay in sync with the audio. See
+[`ARCHITECTURE.md`](ARCHITECTURE.md) for the loop and module breakdown.
 
 ### Audio Engine
 
@@ -142,8 +141,8 @@ pointer interaction with the voices; a small hint overlay reports state.
 
 ## Validation
 
-`npm run check` formats and lints Rust (`cargo fmt --check`, `clippy -D warnings`), runs the host test
-suite (`cargo test`), builds the production wasm bundle, and runs the headless Puppeteer test
-(`web-test.js`). The browser test skips engine-coupled assertions when WebGPU is unavailable in
-headless, so it stays green in CI. The browser is single-threaded for this project; generation and
-moderate graphics run comfortably on one thread.
+`npm run check` is the full gate — Rust fmt/clippy/tests, a Graphviz diagram render check, the
+production wasm build, and the headless Puppeteer test; see the [README](../README.md#quality-gate) for
+the commands. The browser test skips engine-coupled assertions when WebGPU is unavailable in headless,
+so CI stays green on GPU-less runners. The app runs single-threaded — generation and moderate graphics
+fit comfortably on one thread.

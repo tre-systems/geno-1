@@ -32,7 +32,7 @@ reacts to the music and to pointer gestures. It is the foundational Geno instrum
 - WebGPU wave field: layered noise sheets with voice-reactive displacement, a pointer-driven swirl
   with inertial physics, and click ripples.
 - HDR post-processing: bright-pass bloom, separable blur, ACES tonemap, vignette, and film grain.
-- Host-tested core (35 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
+- Host-tested core (36 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
 
 ## Stack
 
@@ -97,6 +97,7 @@ Additional scripts:
 - `cargo fmt --check`
 - `cargo clippy -- -D warnings`
 - `cargo test`
+- Graphviz diagram render check (`check:diagrams`)
 - production wasm build
 - headless browser integration test (`web-test.js`, Puppeteer)
 
@@ -117,10 +118,11 @@ npm run setup   # or: git config core.hooksPath .githooks
 
 Deployed to Cloudflare Workers as static assets.
 
-- Build: `npm run build` — populates `dist/` with `index.html` and `pkg/{app_web.js, app_web_bg.wasm, env.js}`
+- Build: `npm run build` — populates `dist/` with `index.html`, `favicon.svg`, and
+  `pkg/{app_web.js, app_web_bg.wasm, env.js}`
 - Deploy: `npx --yes wrangler deploy` (config in `wrangler.toml`)
 - `worker.js` sets cache-control headers; `pkg/env.js` carries a git-SHA version that `index.html`
-  appends to the wasm import (`?v=<version>`) for deterministic cache-busting.
+  appends to the wasm entry (`app_web.js?v=<version>`) for deterministic cache-busting.
 
 CI (`.github/workflows/ci.yml`) runs `npm run check` on every push/PR and deploys on push to `main`
 when `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are configured.
