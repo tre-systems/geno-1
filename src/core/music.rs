@@ -94,6 +94,22 @@ pub const TET19_PENTATONIC: &[f32] = &[0.0, 2.4, 4.8, 7.2, 9.6, 12.0];
 pub const TET24_PENTATONIC: &[f32] = &[0.0, 2.5, 5.0, 7.5, 10.0, 12.0];
 pub const TET31_PENTATONIC: &[f32] = &[0.0, 2.4, 4.8, 7.2, 9.6, 12.0];
 
+/// Root notes in musical order (C D E F G A B), used by random selection.
+pub const ROOTS_MUSICAL_ORDER: [MidiNote; 7] = [
+    MidiNote(60.0),
+    MidiNote(62.0),
+    MidiNote(64.0),
+    MidiNote(65.0),
+    MidiNote(67.0),
+    MidiNote(69.0),
+    MidiNote(71.0),
+];
+
+/// Diatonic modes in order, used by random selection.
+pub const MODES_ORDER: [&[f32]; 7] = [
+    IONIAN, DORIAN, PHRYGIAN, LYDIAN, MIXOLYDIAN, AEOLIAN, LOCRIAN,
+];
+
 /// Random generative scheduler producing `NoteEvent`s on an eighth-note grid.
 ///
 /// The engine maintains per-voice state and RNGs. On each tick, it advances an
@@ -111,6 +127,7 @@ pub struct MusicEngine {
     pub configs: Vec<VoiceConfig>,
     pub params: EngineParams,
     rngs: Vec<StdRng>,
+    aux_rng: StdRng,
     solo_index: Option<usize>,
     beat_accum: f64,
 }
@@ -133,12 +150,15 @@ impl MusicEngine {
                 StdRng::seed_from_u64(mix)
             })
             .collect::<Vec<_>>();
+        // Separate RNG for non-voice randomization (root/mode), kept deterministic per seed.
+        let aux_rng = StdRng::seed_from_u64(seed ^ 0xA5A5_5A5A_DEAD_BEEF);
 
         Self {
             voices,
             configs,
             params,
             rngs,
+            aux_rng,
             solo_index: None,
             beat_accum: 0.0,
         }
@@ -189,6 +209,15 @@ impl MusicEngine {
             let new_seed = seed.unwrap_or_else(|| r.gen());
             *r = StdRng::seed_from_u64(new_seed);
         }
+    }
+
+    /// Randomly choose a new root note and diatonic mode using the engine's
+    /// seeded auxiliary RNG (deterministic for a given seed, host-testable).
+    pub fn randomize_root_and_mode(&mut self) {
+        let ri = self.aux_rng.gen_range(0..ROOTS_MUSICAL_ORDER.len());
+        let mi = self.aux_rng.gen_range(0..MODES_ORDER.len());
+        self.params.root = ROOTS_MUSICAL_ORDER[ri];
+        self.params.scale = MODES_ORDER[mi];
     }
 
     /// Solo a voice. Toggling solo on the same voice clears solo mode.

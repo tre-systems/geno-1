@@ -1,6 +1,6 @@
 use crate::core::MusicEngine;
 use crate::core::{
-    Bpm, Cents, MidiNote, VoiceIndex, AEOLIAN, C_MAJOR_PENTATONIC, DORIAN, IONIAN, LOCRIAN, LYDIAN,
+    Bpm, Cents, VoiceIndex, AEOLIAN, C_MAJOR_PENTATONIC, DORIAN, IONIAN, LOCRIAN, LYDIAN,
     MIXOLYDIAN, PHRYGIAN, TET19_PENTATONIC, TET24_PENTATONIC, TET31_PENTATONIC,
 };
 use crate::events::keymap::{mode_scale_for_digit, root_midi_for_key};
@@ -83,16 +83,7 @@ pub fn handle_global_keydown(
             log::info!("[keys] reseeded all voices");
         }
         "t" | "T" => {
-            let roots: [i32; 7] = [60, 62, 64, 65, 67, 69, 71]; // C, D, E, F, G, A, B
-            let modes: [&'static [f32]; 7] = [
-                IONIAN, DORIAN, PHRYGIAN, LYDIAN, MIXOLYDIAN, AEOLIAN, LOCRIAN,
-            ];
-            let ri = (js_sys::Math::random() * roots.len() as f64).floor() as usize;
-            let mi = (js_sys::Math::random() * modes.len() as f64).floor() as usize;
-            let mut eng = engine.borrow_mut();
-            eng.params.root = MidiNote(roots[ri] as f32);
-            eng.params.scale = modes[mi];
-            drop(eng);
+            engine.borrow_mut().randomize_root_and_mode();
             update_hint_after_change(engine);
         }
         " " => {

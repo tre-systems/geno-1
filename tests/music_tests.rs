@@ -358,3 +358,17 @@ fn detune_round_trip_accuracy() {
         );
     }
 }
+
+#[test]
+fn engine_randomize_root_and_mode_is_seeded_and_in_range() {
+    let mut e1 = make_engine();
+    let mut e2 = make_engine();
+    e1.randomize_root_and_mode();
+    e2.randomize_root_and_mode();
+    // Deterministic for a given seed (host-testable, unlike Math::random).
+    assert_eq!(e1.params.root, e2.params.root);
+    assert_eq!(e1.params.scale, e2.params.scale);
+    // Always a valid musical root and mode.
+    assert!(ROOTS_MUSICAL_ORDER.contains(&e1.params.root));
+    assert!(MODES_ORDER.contains(&e1.params.scale));
+}
