@@ -21,12 +21,21 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
 - Generation: configurable scheduling grid (16th notes, triplets, dotted rhythms); pattern memory so
   voices vary previous sequences; gradual key modulation between related keys.
 - Just Intonation pentatonic to complete the tuning set.
-- AudioWorklet path for sample-accurate timing.
+- AudioWorklet path for sample-accurate synthesis.
+- Continuous background-tab audio: drive the scheduler from a Web Worker timer. `setInterval` throttles
+  to ~1 Hz when the tab is hidden, so the lookahead scheduler currently goes choppy (not silent) in the
+  background; a worker timer keeps it smooth.
+- Lower click-to-play latency: schedule click notes immediately on the audio clock instead of via the
+  one-frame input command queue.
 
 ## Architecture & types
 
-- Extend the runtime `Config` tier to the remaining tuning groups (sends, pulse, analyser, render
-  strength) and add a preset/serialization layer on top of it.
+- Give the runtime `Config` tier a consumer (a preset / live-tuning surface) and extend it to the
+  remaining tuning groups; until something varies it at runtime, it is indirection ahead of need.
+- Generalise beyond three hardcoded voices — the count is baked into the WGSL uniform (`[VoicePacked; 3]`)
+  and the pulse arrays (`[f32; 3]`). Needs a dynamic uniform array + `Vec`-based pulses.
+- Decompose `FrameContext` (33 fields) into focused sub-states (audio, render, interaction) that systems
+  borrow explicitly.
 - Capture/restore engine + RNG state for deterministic session replay.
 - Extract initialisation and WebGPU pipeline builders into focused submodules.
 - Add rustdoc with examples for the public API surface.
@@ -49,8 +58,13 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
 
 - Verify cent-level accuracy across all tuning systems.
 - Extend the headless test to change tempo and assert the hint reflects the new BPM.
-- Cross-browser WebGPU checks (Chrome / Edge, and Firefox once supported).
+- Add `criterion` benchmarks for the pure engine to inform synthesis / scheduling decisions.
+- Migrate the browser smoke test from Puppeteer to Playwright (consistency with the other projects;
+  enables visual / snapshot tests).
+- Cross-browser WebGPU checks (Chrome / Edge, and Firefox once supported). The app is WebGPU-only by
+  design (no WebGL fallback) — a deliberate reach limitation worth stating in the README.
 
 ## Maintenance
 
-- Keep dependencies current (`wgpu` and `rand` are a few versions behind).
+- Upgrade `wgpu` (24 → 29, ~5 majors behind), `rand` (0.8 → 0.9), and `glam`. The `wgpu` jump is mostly
+  mechanical given the app only uses uniform buffers, but spans several breaking releases.
