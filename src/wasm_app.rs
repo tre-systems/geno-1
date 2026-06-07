@@ -1,7 +1,7 @@
 use crate::core::{
     Bpm, Cents, EngineParams, MidiNote, MusicEngine, VoiceConfig, Waveform, C_MAJOR_PENTATONIC,
 };
-use crate::{audio, constants, dom, events, frame, input, overlay, render};
+use crate::{audio, constants, dom, events, frame, input, overlay, render, scheduler};
 use glam::Vec3;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -237,6 +237,24 @@ async fn init() -> anyhow::Result<()> {
                 let pulses = Rc::new(RefCell::new(vec![0.0_f32; engine.borrow().voices.len()]));
                 let (analyser, analyser_buf) = audio::create_analyser(&audio_ctx);
 
+                // Shared note pool and the timed visual pulses the scheduler produces.
+                let active_notes: Rc<RefCell<Vec<audio::ActiveNote>>> =
+                    Rc::new(RefCell::new(Vec::new()));
+                let pending_pulses: scheduler::PulseQueue = Rc::new(RefCell::new(VecDeque::new()));
+
+                // Audio scheduler: generates and schedules notes ahead on the audio clock,
+                // off the render frame (keeps running, coarsely, in background tabs).
+                scheduler::start(scheduler::AudioScheduler::new(
+                    engine.clone(),
+                    paused.clone(),
+                    audio_ctx.clone(),
+                    voice_gains.clone(),
+                    delay_sends.clone(),
+                    reverb_sends.clone(),
+                    active_notes.clone(),
+                    pending_pulses.clone(),
+                ));
+
                 // Shared input command queue: keyboard + pointer enqueue, frame drains.
                 let input_queue: Rc<RefCell<VecDeque<events::InputCommand>>> =
                     Rc::new(RefCell::new(VecDeque::new()));
@@ -293,7 +311,8 @@ async fn init() -> anyhow::Result<()> {
                     swirl_initialized: false,
                     pulse_energy: [0.0, 0.0, 0.0],
                     config: constants::Config::default(),
-                    active_notes: Vec::new(),
+                    active_notes: active_notes.clone(),
+                    pending_pulses: pending_pulses.clone(),
                 }));
                 // Start RAF loop
                 frame::start_loop(frame_ctx);

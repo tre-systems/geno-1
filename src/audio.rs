@@ -1,3 +1,4 @@
+use crate::constants::MAX_POLYPHONY;
 use crate::core::{Hz, Waveform};
 use glam::Vec3;
 use std::cell::RefCell;
@@ -177,6 +178,7 @@ pub fn trigger_one_shot(
     freq: Hz,
     velocity: f32,
     duration_sec: f64,
+    at_time: f64,
     voice_gain: &web::GainNode,
     delay_send: &web::GainNode,
     reverb_send: &web::GainNode,
@@ -189,9 +191,11 @@ pub fn trigger_one_shot(
     }
     src.frequency().set_value(freq.0);
     let gain = web::GainNode::new(audio_ctx).ok()?;
+    // Anchor the envelope at the scheduled start so the attack happens at `at_time`,
+    // not from "now" — essential now that notes are scheduled ahead of time.
     gain.gain().set_value(0.0);
-    let now = audio_ctx.current_time();
-    let t0 = now + 0.005;
+    let t0 = at_time;
+    _ = gain.gain().set_value_at_time(0.0, t0);
     _ = gain
         .gain()
         .linear_ramp_to_value_at_time(velocity, t0 + 0.02);
@@ -210,6 +214,53 @@ pub fn trigger_one_shot(
         gain,
         stop_time,
     })
+}
+
+/// Spawn a note into `active_notes`, reaping finished notes and enforcing the
+/// polyphony cap first. Shared by the audio scheduler (rhythmic notes) and the
+/// frame loop (click-to-play). `at_time` is the AudioContext time to start at.
+#[allow(clippy::too_many_arguments)]
+pub fn spawn_note(
+    audio_ctx: &web::AudioContext,
+    waveform: Waveform,
+    freq: Hz,
+    velocity: f32,
+    duration_sec: f64,
+    at_time: f64,
+    voice_gain: &web::GainNode,
+    delay_send: &web::GainNode,
+    reverb_send: &web::GainNode,
+    active_notes: &RefCell<Vec<ActiveNote>>,
+) {
+    let now = audio_ctx.current_time();
+    {
+        let mut notes = active_notes.borrow_mut();
+        notes.retain(|n| {
+            if n.stop_time <= now {
+                _ = n.osc.disconnect();
+                _ = n.gain.disconnect();
+                false
+            } else {
+                true
+            }
+        });
+        if notes.len() >= MAX_POLYPHONY {
+            return;
+        }
+    }
+    if let Some(note) = trigger_one_shot(
+        audio_ctx,
+        waveform,
+        freq,
+        velocity,
+        duration_sec,
+        at_time,
+        voice_gain,
+        delay_send,
+        reverb_send,
+    ) {
+        active_notes.borrow_mut().push(note);
+    }
 }
 
 // Create analyser and an appropriately sized buffer

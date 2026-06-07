@@ -1,15 +1,15 @@
 use crate::audio;
 use crate::constants::*;
-use crate::core::{Bpm, Hz, MusicEngine, NoteEvent, VoiceIndex, Waveform, C_MAJOR_PENTATONIC};
+use crate::core::{Bpm, MusicEngine, VoiceIndex, C_MAJOR_PENTATONIC};
 use crate::events::InputCommand;
 use crate::input;
 use crate::overlay;
 use crate::render;
+use crate::scheduler::PulseQueue;
 use glam::Vec3;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
-use std::time::Duration;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys as web;
@@ -57,7 +57,8 @@ pub struct FrameContext<'a> {
     pub swirl_initialized: bool,
     pub pulse_energy: [f32; 3],
     pub config: Config,
-    pub active_notes: Vec<audio::ActiveNote>,
+    pub active_notes: Rc<RefCell<Vec<audio::ActiveNote>>>,
+    pub pending_pulses: PulseQueue,
 }
 
 impl<'a> FrameContext<'a> {
@@ -67,36 +68,33 @@ impl<'a> FrameContext<'a> {
         self.last_instant = now;
         let dt_sec = dt.as_secs_f32();
 
-        // Ordered per-frame systems.
+        // Ordered per-frame systems. Note generation + audio scheduling run off-frame
+        // in the audio scheduler; the frame fires timed pulses and renders.
         self.apply_input_commands();
-        let note_events = self.advance_music(dt);
-        self.update_pulses(&note_events, dt_sec);
+        self.update_pulses(dt_sec);
         self.update_swirl_and_fx(dt_sec);
         self.update_spatial_audio();
         self.update_ambient();
         self.render_scene(dt_sec);
-        self.trigger_scheduled_notes(&note_events);
     }
 
-    /// Advance the music engine and return the notes scheduled this frame.
-    fn advance_music(&mut self, dt: Duration) -> Vec<NoteEvent> {
-        let mut note_events = Vec::new();
-        if !*self.paused.borrow() {
-            self.engine.borrow_mut().tick(dt, &mut note_events);
-        }
-        note_events
-    }
-
-    /// Accumulate per-voice pulse energy from new notes, then smooth the visual pulses.
-    fn update_pulses(&mut self, note_events: &[NoteEvent], dt_sec: f32) {
-        let mut pulses_ref = self.pulses.borrow_mut();
-        let n = pulses_ref.len().min(3);
-        for ev in note_events {
-            if ev.voice.0 < n {
-                self.pulse_energy[ev.voice.0] =
-                    (self.pulse_energy[ev.voice.0] + ev.velocity as f32).min(PULSE_ENERGY_MAX);
+    /// Fire scheduled pulses whose audio time has arrived, then smooth the visual pulses.
+    fn update_pulses(&mut self, dt_sec: f32) {
+        let now = self.audio_ctx.current_time();
+        {
+            let mut pending = self.pending_pulses.borrow_mut();
+            while let Some(&(voice, at, velocity)) = pending.front() {
+                if at > now {
+                    break; // pending is ordered by scheduled time
+                }
+                if voice.0 < self.pulse_energy.len() {
+                    self.pulse_energy[voice.0] =
+                        (self.pulse_energy[voice.0] + velocity).min(PULSE_ENERGY_MAX);
+                }
+                pending.pop_front();
             }
         }
+        let mut pulses_ref = self.pulses.borrow_mut();
         smooth_pulses(&mut pulses_ref, &mut self.pulse_energy, dt_sec);
     }
 
@@ -209,60 +207,6 @@ impl<'a> FrameContext<'a> {
             if let Err(e) = g.render(dt_sec, &voice_positions, &pulse_energy_snapshot) {
                 log::error!("render error: {:?}", e);
             }
-        }
-    }
-
-    /// Spawn a note, tracking its nodes so they can be disconnected once finished.
-    /// Reaps already-finished notes and enforces the polyphony cap first.
-    fn spawn_note(
-        &mut self,
-        waveform: Waveform,
-        freq: Hz,
-        velocity: f32,
-        duration_sec: f64,
-        voice: VoiceIndex,
-    ) {
-        let now = self.audio_ctx.current_time();
-        self.active_notes.retain(|n| {
-            if n.stop_time <= now {
-                _ = n.osc.disconnect();
-                _ = n.gain.disconnect();
-                false
-            } else {
-                true
-            }
-        });
-        if self.active_notes.len() >= MAX_POLYPHONY {
-            return;
-        }
-        if let Some(note) = audio::trigger_one_shot(
-            &self.audio_ctx,
-            waveform,
-            freq,
-            velocity,
-            duration_sec,
-            &self.voice_gains[voice.0],
-            &self.delay_sends[voice.0],
-            &self.reverb_sends[voice.0],
-        ) {
-            self.active_notes.push(note);
-        }
-    }
-
-    /// Synthesise the notes scheduled this frame (deferred so the render runs first).
-    fn trigger_scheduled_notes(&mut self, note_events: &[NoteEvent]) {
-        if *self.paused.borrow() {
-            return;
-        }
-        for ev in note_events {
-            let waveform = self.engine.borrow().configs[ev.voice.0].waveform;
-            self.spawn_note(
-                waveform,
-                ev.freq,
-                ev.velocity,
-                ev.duration_sec as f64,
-                ev.voice,
-            );
         }
     }
 }
@@ -397,7 +341,18 @@ impl<'a> FrameContext<'a> {
                     duration_sec,
                 } => {
                     let waveform = self.engine.borrow().configs[voice.0].waveform;
-                    self.spawn_note(waveform, freq, velocity, duration_sec, voice);
+                    audio::spawn_note(
+                        &self.audio_ctx,
+                        waveform,
+                        freq,
+                        velocity,
+                        duration_sec,
+                        self.audio_ctx.current_time() + 0.005,
+                        &self.voice_gains[voice.0],
+                        &self.delay_sends[voice.0],
+                        &self.reverb_sends[voice.0],
+                        &self.active_notes,
+                    );
                 }
                 InputCommand::Ripple(uv) => self.pending_ripple = Some(uv),
             }

@@ -17,6 +17,8 @@ mod overlay;
 #[cfg(target_arch = "wasm32")]
 mod render;
 #[cfg(target_arch = "wasm32")]
+mod scheduler;
+#[cfg(target_arch = "wasm32")]
 mod wasm_app;
 
 #[cfg(target_arch = "wasm32")]
