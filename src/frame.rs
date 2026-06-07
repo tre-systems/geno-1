@@ -184,6 +184,11 @@ impl<'a> FrameContext<'a> {
                 g.set_ripple(uvr, 1.0);
             }
             g.set_swirl(self.swirl_pos, true);
+            let (hue_shift, warmth) = {
+                let eng = self.engine.borrow();
+                crate::core::harmony_color(eng.params.root, eng.params.scale)
+            };
+            g.set_harmony(hue_shift, warmth);
             let w = self.canvas.width();
             let h = self.canvas.height();
             g.resize_if_needed(w, h);

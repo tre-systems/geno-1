@@ -378,6 +378,53 @@ fn engine_step_sequence_is_a_stable_snapshot() {
 }
 
 #[test]
+fn harmony_color_maps_root_to_hue() {
+    // Root pitch class drives hue_shift (0..1); C is 0.
+    let (hue_c, _) = harmony_color(MidiNote(60.0), C_MAJOR_PENTATONIC);
+    assert!((hue_c - 0.0).abs() < 1e-6, "C should map to hue 0");
+    let (hue_cs, _) = harmony_color(MidiNote(61.0), C_MAJOR_PENTATONIC);
+    assert!(
+        (hue_cs - 1.0 / 12.0).abs() < 1e-6,
+        "C# should map to hue 1/12"
+    );
+    // Octave-equivalent roots share a hue.
+    let (hue_c5, _) = harmony_color(MidiNote(72.0), C_MAJOR_PENTATONIC);
+    assert!(
+        (hue_c5 - hue_c).abs() < 1e-6,
+        "octave-equivalent roots share a hue"
+    );
+}
+
+#[test]
+fn harmony_color_warmth_tracks_mode_brightness() {
+    let (_, ionian) = harmony_color(MidiNote(60.0), IONIAN);
+    let (_, aeolian) = harmony_color(MidiNote(60.0), AEOLIAN);
+    let (_, lydian) = harmony_color(MidiNote(60.0), LYDIAN);
+    let (_, locrian) = harmony_color(MidiNote(60.0), LOCRIAN);
+    assert!(
+        ionian > aeolian,
+        "major modes should read warmer than minor"
+    );
+    assert!(lydian >= ionian, "Lydian is the brightest mode");
+    assert!(locrian < aeolian, "Locrian is the darkest mode");
+    // Every mode and the pentatonic default stay within range.
+    for scale in [
+        IONIAN,
+        DORIAN,
+        PHRYGIAN,
+        LYDIAN,
+        MIXOLYDIAN,
+        AEOLIAN,
+        LOCRIAN,
+        C_MAJOR_PENTATONIC,
+    ] {
+        let (hue, warmth) = harmony_color(MidiNote(67.0), scale);
+        assert!((0.0..1.0).contains(&hue), "hue stays in [0,1)");
+        assert!((0.0..=1.0).contains(&warmth), "warmth stays in [0,1]");
+    }
+}
+
+#[test]
 fn engine_randomize_root_and_mode_is_seeded_and_in_range() {
     let mut e1 = make_engine();
     let mut e2 = make_engine();

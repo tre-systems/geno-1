@@ -318,3 +318,24 @@ pub fn midi_to_hz(midi: f32) -> f32 {
 pub fn midi_to_hz_with_detune(midi: f32, detune_cents: f32) -> f32 {
     MidiNote(midi).to_hz_detuned(Cents(detune_cents)).0
 }
+
+/// Map the current harmony (root note + scale) to a scene-colour hint for the visuals.
+///
+/// Returns `(hue_shift, warmth)`, both in `0.0..=1.0`: `hue_shift` rotates with the root's
+/// pitch class (so changing key recolours the scene), and `warmth` rises with the scale's
+/// brightness — major-third modes read warm, minor-third modes cool. Pure, so the mapping
+/// is deterministic and host-testable.
+pub fn harmony_color(root: MidiNote, scale: &[f32]) -> (f32, f32) {
+    let pitch_class = (root.0.round() as i32).rem_euclid(12) as f32;
+    let hue_shift = pitch_class / 12.0;
+    // The third (scale[2] for these scales) is the dominant major/minor brightness cue; the
+    // mean degree adds finer modal ordering (e.g. Lydian brighter than Ionian).
+    let third = scale.get(2).copied().unwrap_or(4.0);
+    let mean = if scale.is_empty() {
+        6.0
+    } else {
+        scale.iter().sum::<f32>() / scale.len() as f32
+    };
+    let warmth = (0.5 + (third - 3.5) * 0.35 + (mean - 6.0) * 0.15).clamp(0.0, 1.0);
+    (hue_shift, warmth)
+}

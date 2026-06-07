@@ -30,9 +30,9 @@ reacts to the music and to pointer gestures. It is the foundational Geno instrum
 - Spatial audio: per-voice HRTF panners feed a shared convolution reverb, feedback delay, and
   saturation bus; send levels follow each voice's position in 3D space.
 - WebGPU wave field: layered noise sheets with voice-reactive displacement, a pointer-driven swirl
-  with inertial physics, and click ripples.
+  with inertial physics, and click ripples — with a palette that follows the current key and mode.
 - HDR post-processing: bright-pass bloom, separable blur, ACES tonemap, vignette, and film grain.
-- Host-tested core (36 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
+- Host-tested core (38 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
 
 ## Stack
 

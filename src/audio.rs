@@ -5,6 +5,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use web_sys as web;
 
+// Per-note amplitude envelope: a short linear attack into an exponential release tail,
+// which reads softer and more "ambient" than a linear ramp to zero.
+const NOTE_ATTACK_SEC: f64 = 0.018;
+const NOTE_RELEASE_TAU_FRAC: f64 = 0.30; // release time constant = duration * this
+const NOTE_RELEASE_STOP_MULT: f64 = 1.8; // stop the oscillator after attack + duration * this
+
+// Gentle per-voice low-pass on the dry path warms the raw oscillators (the reverb/delay
+// sends are already dark), taming the sawtooth's fizz without dulling the sine/triangle.
+const VOICE_TONE_CUTOFF_HZ: f32 = 4800.0;
+
 thread_local! {
     static MASTER_UNMUTED_GAIN: RefCell<Option<f32>> = const { RefCell::new(None) };
 }
@@ -195,19 +205,21 @@ fn trigger_one_shot(
     // right moment, not from the AudioContext's current time.
     gain.gain().set_value(0.0);
     let t0 = at_time;
+    let attack_end = t0 + NOTE_ATTACK_SEC;
     _ = gain.gain().set_value_at_time(0.0, t0);
     _ = gain
         .gain()
-        .linear_ramp_to_value_at_time(velocity, t0 + 0.02);
-    _ = gain
-        .gain()
-        .linear_ramp_to_value_at_time(0.0, t0 + duration_sec);
+        .linear_ramp_to_value_at_time(velocity, attack_end);
+    // Exponential decay toward silence; it never quite reaches 0, so the oscillator is
+    // stopped (below) once the tail is inaudible.
+    let release_tau = (duration_sec * NOTE_RELEASE_TAU_FRAC).max(0.04);
+    _ = gain.gain().set_target_at_time(0.0, attack_end, release_tau);
     _ = src.connect_with_audio_node(&gain);
     _ = gain.connect_with_audio_node(voice_gain);
     _ = gain.connect_with_audio_node(delay_send);
     _ = gain.connect_with_audio_node(reverb_send);
     _ = src.start_with_when(t0);
-    let stop_time = t0 + duration_sec + 0.05;
+    let stop_time = attack_end + duration_sec * NOTE_RELEASE_STOP_MULT;
     _ = src.stop_with_when(stop_time);
     Some(ActiveNote {
         osc: src,
@@ -306,7 +318,13 @@ pub fn wire_voices(
         panner.position_z().set_value(pos.z);
 
         let gain = create_gain(audio_ctx, 0.0, "Voice gain")?;
-        _ = gain.connect_with_audio_node(&panner);
+        // Dry path: voice gain -> gentle low-pass -> panner -> master.
+        let tone = web::BiquadFilterNode::new(audio_ctx)
+            .map_err(|e| anyhow::anyhow!("Voice tone filter: {e:?}"))?;
+        tone.set_type(web::BiquadFilterType::Lowpass);
+        tone.frequency().set_value(VOICE_TONE_CUTOFF_HZ);
+        _ = gain.connect_with_audio_node(&tone);
+        _ = tone.connect_with_audio_node(&panner);
         _ = panner.connect_with_audio_node(master_gain);
 
         let d_send = create_gain(audio_ctx, 0.4, "Delay send")?;

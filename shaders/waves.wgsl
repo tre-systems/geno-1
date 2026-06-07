@@ -22,6 +22,7 @@ struct WaveUniforms {
     ripple_uv: vec2<f32>,
     ripple_t0: f32,
     ripple_amp: f32,
+    harmony: vec4<f32>, // x = hue_shift, y = warmth (both 0..1)
 };
 
 @group(0) @binding(0) var<uniform> u: WaveUniforms;
@@ -77,8 +78,12 @@ fn fs_waves(inp: VsOut) -> @location(0) vec4<f32> {
     let cuv0 = (uv - 0.5) * vec2<f32>(aspect, 1.0);
     let t = u.time;
 
-    let warm = vec3<f32>(1.04, 0.76, 0.36);
-    let moon = vec3<f32>(0.62, 0.85, 1.06);
+    // Music-driven colour: warmth rebalances the warm/cool palette and hue_shift rotates
+    // the spectral band, so changing key/mode visibly recolours the scene.
+    let warmth = u.harmony.y;
+    let hue_shift = u.harmony.x;
+    let warm = vec3<f32>(1.04, 0.76, 0.36) * (0.72 + 0.56 * warmth);
+    let moon = vec3<f32>(0.62, 0.85, 1.06) * (0.72 + 0.56 * (1.0 - warmth));
     var col = vec3<f32>(0.010, 0.015, 0.034);
 
     // Layered wave sheets with depth parallax.
@@ -149,9 +154,10 @@ fn fs_waves(inp: VsOut) -> @location(0) vec4<f32> {
         let l2 = normalize(vec3<f32>(0.60, -0.16, 0.78));
         let diff = 0.66 * max(dot(n, l1), 0.0) + 0.34 * max(dot(n, l2), 0.0);
 
-        let hue = 0.22 * depth + 0.17 * h + 0.06 * fbm(cuv * 1.6 + vec2<f32>(0.11 * tt, -0.08 * tt));
+        let hue = 0.22 * depth + 0.17 * h + 0.06 * fbm(cuv * 1.6 + vec2<f32>(0.11 * tt, -0.08 * tt)) + hue_shift;
         let spectral = palette(hue);
-        let base = mix(vec3<f32>(0.018, 0.026, 0.056), vec3<f32>(0.10, 0.14, 0.25), 0.30 + 0.52 * diff + 0.18 * u.ambient);
+        var base = mix(vec3<f32>(0.018, 0.026, 0.056), vec3<f32>(0.10, 0.14, 0.25), 0.30 + 0.52 * diff + 0.18 * u.ambient);
+        base += (warmth - 0.5) * vec3<f32>(0.028, 0.004, -0.024);
         let k = clamp(0.5 + 0.78 * h, 0.0, 1.0);
 
         var layer_col = base + spectral * (0.30 + 0.34 * u.ambient);

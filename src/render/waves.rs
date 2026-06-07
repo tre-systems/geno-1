@@ -17,6 +17,8 @@ pub(crate) struct WavesUniforms {
     pub(crate) ripple_uv: [f32; 2],
     pub(crate) ripple_t0: f32,
     pub(crate) ripple_amp: f32,
+    // Music-driven scene colour: [hue_shift, warmth, _, _] (vec4 keeps 16-byte alignment).
+    pub(crate) harmony: [f32; 4],
 }
 
 pub(crate) struct WavesResources {

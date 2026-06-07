@@ -11,6 +11,9 @@ pub use crate::camera::screen_to_world_ray;
 
 use waves::{create_waves_resources, VoicePacked, WavesResources, WavesUniforms};
 
+// Per-frame easing for the music-driven scene colour (exponential smoothing).
+const HARMONY_SMOOTH_ALPHA: f32 = 0.025;
+
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct PostUniforms {
@@ -56,6 +59,9 @@ pub struct GpuState<'a> {
     ripple_uv: [f32; 2],
     ripple_t0: f32,
     ripple_amp: f32,
+    // Music-driven scene colour, eased toward target: [hue_shift, warmth].
+    harmony: [f32; 2],
+    harmony_target: [f32; 2],
 }
 
 impl<'a> GpuState<'a> {
@@ -289,6 +295,8 @@ impl<'a> GpuState<'a> {
             ripple_uv: [0.5, 0.5],
             ripple_t0: -1.0,
             ripple_amp: 0.0,
+            harmony: [0.0, 0.5],
+            harmony_target: [0.0, 0.5],
         })
     }
     pub fn set_ambient_clear(&mut self, energy01: f32) {
@@ -312,6 +320,10 @@ impl<'a> GpuState<'a> {
     pub fn set_swirl(&mut self, uv: [f32; 2], active: bool) {
         self.swirl_uv = uv;
         self.swirl_active = if active { 1.0 } else { 0.0 };
+    }
+
+    pub fn set_harmony(&mut self, hue_shift: f32, warmth: f32) {
+        self.harmony_target = [hue_shift.rem_euclid(1.0), warmth.clamp(0.0, 1.0)];
     }
 
     pub fn set_ripple(&mut self, uv: [f32; 2], amp: f32) {
@@ -345,6 +357,15 @@ impl<'a> GpuState<'a> {
     ) -> Result<(), wgpu::SurfaceError> {
         self.resize_if_needed(self.width, self.height);
         self.time_accum += dt_sec.max(0.0);
+        // Ease the scene colour toward the current harmony (shortest arc around the hue wheel).
+        let mut dh = self.harmony_target[0] - self.harmony[0];
+        if dh > 0.5 {
+            dh -= 1.0;
+        } else if dh < -0.5 {
+            dh += 1.0;
+        }
+        self.harmony[0] = (self.harmony[0] + dh * HARMONY_SMOOTH_ALPHA).rem_euclid(1.0);
+        self.harmony[1] += (self.harmony_target[1] - self.harmony[1]) * HARMONY_SMOOTH_ALPHA;
         let frame = self.surface.get_current_texture()?;
         let view = frame
             .texture
@@ -408,6 +429,7 @@ impl<'a> GpuState<'a> {
                 ripple_uv: self.ripple_uv,
                 ripple_t0: self.ripple_t0,
                 ripple_amp: self.ripple_amp,
+                harmony: [self.harmony[0], self.harmony[1], 0.0, 0.0],
             };
             self.queue
                 .write_buffer(&self.waves.uniform_buffer, 0, bytemuck::bytes_of(&w));
