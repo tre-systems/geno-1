@@ -3,12 +3,12 @@ use crate::core::{MusicEngine, Waveform};
 use crate::input;
 use crate::render;
 use glam::Vec3;
-use instant::Instant;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys as web;
+use web_time::Instant;
 
 use crate::constants::CAMERA_Z;
 

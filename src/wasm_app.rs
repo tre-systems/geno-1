@@ -1,7 +1,6 @@
 use crate::core::{EngineParams, MusicEngine, VoiceConfig, Waveform, C_MAJOR_PENTATONIC};
 use crate::{audio, dom, events, frame, input, overlay, render};
 use glam::Vec3;
-use instant::Instant;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,6 +8,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 use web_sys as web;
+use web_time::Instant;
 
 fn show_audio_error(document: &web::Document, reason: &str) {
     if let Some(el) = document.get_element_by_id("audio-error") {

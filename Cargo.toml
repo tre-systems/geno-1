@@ -4,7 +4,7 @@ version = "1.2.0"
 edition = "2021"
 license = "MIT"
 description = "Web front-end (WASM) using WebGPU and WebAudio for geno-1"
-repository = "https://github.com/rgilks/geno-1"
+repository = "https://github.com/tre-systems/geno-1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -50,7 +50,7 @@ web-sys = { version = "0.3", features = [
 wgpu = { version = "24.0", features = ["webgpu"] }
 glam = "0.27"
 bytemuck = { version = "1.16", features = ["derive"] }
-instant = "0.1"
+web-time = "1.1"
 rand = "0.8"
 getrandom = { version = "0.2", features = ["js"] }
 
