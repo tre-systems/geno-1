@@ -1,6 +1,6 @@
 use crate::audio;
 use crate::constants::*;
-use crate::core::{Bpm, MusicEngine, NoteEvent, VoiceIndex, C_MAJOR_PENTATONIC};
+use crate::core::{Bpm, Hz, MusicEngine, NoteEvent, VoiceIndex, Waveform, C_MAJOR_PENTATONIC};
 use crate::events::InputCommand;
 use crate::input;
 use crate::overlay;
@@ -57,6 +57,7 @@ pub struct FrameContext<'a> {
     pub swirl_initialized: bool,
     pub pulse_energy: [f32; 3],
     pub config: Config,
+    pub active_notes: Vec<audio::ActiveNote>,
 }
 
 impl<'a> FrameContext<'a> {
@@ -211,22 +212,56 @@ impl<'a> FrameContext<'a> {
         }
     }
 
+    /// Spawn a note, tracking its nodes so they can be disconnected once finished.
+    /// Reaps already-finished notes and enforces the polyphony cap first.
+    fn spawn_note(
+        &mut self,
+        waveform: Waveform,
+        freq: Hz,
+        velocity: f32,
+        duration_sec: f64,
+        voice: VoiceIndex,
+    ) {
+        let now = self.audio_ctx.current_time();
+        self.active_notes.retain(|n| {
+            if n.stop_time <= now {
+                _ = n.osc.disconnect();
+                _ = n.gain.disconnect();
+                false
+            } else {
+                true
+            }
+        });
+        if self.active_notes.len() >= MAX_POLYPHONY {
+            return;
+        }
+        if let Some(note) = audio::trigger_one_shot(
+            &self.audio_ctx,
+            waveform,
+            freq,
+            velocity,
+            duration_sec,
+            &self.voice_gains[voice.0],
+            &self.delay_sends[voice.0],
+            &self.reverb_sends[voice.0],
+        ) {
+            self.active_notes.push(note);
+        }
+    }
+
     /// Synthesise the notes scheduled this frame (deferred so the render runs first).
-    fn trigger_scheduled_notes(&self, note_events: &[NoteEvent]) {
+    fn trigger_scheduled_notes(&mut self, note_events: &[NoteEvent]) {
         if *self.paused.borrow() {
             return;
         }
         for ev in note_events {
             let waveform = self.engine.borrow().configs[ev.voice.0].waveform;
-            audio::trigger_one_shot(
-                &self.audio_ctx,
+            self.spawn_note(
                 waveform,
                 ev.freq,
                 ev.velocity,
                 ev.duration_sec as f64,
-                &self.voice_gains[ev.voice.0],
-                &self.delay_sends[ev.voice.0],
-                &self.reverb_sends[ev.voice.0],
+                ev.voice,
             );
         }
     }
@@ -362,16 +397,7 @@ impl<'a> FrameContext<'a> {
                     duration_sec,
                 } => {
                     let waveform = self.engine.borrow().configs[voice.0].waveform;
-                    audio::trigger_one_shot(
-                        &self.audio_ctx,
-                        waveform,
-                        freq,
-                        velocity,
-                        duration_sec,
-                        &self.voice_gains[voice.0],
-                        &self.delay_sends[voice.0],
-                        &self.reverb_sends[voice.0],
-                    );
+                    self.spawn_note(waveform, freq, velocity, duration_sec, voice);
                 }
                 InputCommand::Ripple(uv) => self.pending_ripple = Some(uv),
             }

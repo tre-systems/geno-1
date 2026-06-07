@@ -161,7 +161,16 @@ pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> anyhow::Result<FxBuses> 
     })
 }
 
-// Fire a simple one-shot oscillator routed through a voice's gain and sends
+/// A scheduled note's nodes, retained so they can be disconnected once it has
+/// finished (rather than left for the garbage collector).
+pub struct ActiveNote {
+    pub osc: web::OscillatorNode,
+    pub gain: web::GainNode,
+    pub stop_time: f64,
+}
+
+/// Fire a one-shot oscillator routed through a voice's gain and sends. Returns the
+/// created nodes (and the time they stop) so the caller can disconnect them later.
 pub fn trigger_one_shot(
     audio_ctx: &web::AudioContext,
     waveform: Waveform,
@@ -171,31 +180,36 @@ pub fn trigger_one_shot(
     voice_gain: &web::GainNode,
     delay_send: &web::GainNode,
     reverb_send: &web::GainNode,
-) {
-    if let Ok(src) = web::OscillatorNode::new(audio_ctx) {
-        match waveform {
-            Waveform::Sine => src.set_type(web::OscillatorType::Sine),
-            // Waveform::Square => src.set_type(web::OscillatorType::Square),
-            Waveform::Saw => src.set_type(web::OscillatorType::Sawtooth),
-            Waveform::Triangle => src.set_type(web::OscillatorType::Triangle),
-        }
-        src.frequency().set_value(freq.0);
-        if let Ok(g) = web::GainNode::new(audio_ctx) {
-            g.gain().set_value(0.0);
-            let now = audio_ctx.current_time();
-            let t0 = now + 0.005;
-            _ = g.gain().linear_ramp_to_value_at_time(velocity, t0 + 0.02);
-            _ = g
-                .gain()
-                .linear_ramp_to_value_at_time(0.0, t0 + duration_sec);
-            _ = src.connect_with_audio_node(&g);
-            _ = g.connect_with_audio_node(voice_gain);
-            _ = g.connect_with_audio_node(delay_send);
-            _ = g.connect_with_audio_node(reverb_send);
-            _ = src.start_with_when(t0);
-            _ = src.stop_with_when(t0 + duration_sec + 0.05);
-        }
+) -> Option<ActiveNote> {
+    let src = web::OscillatorNode::new(audio_ctx).ok()?;
+    match waveform {
+        Waveform::Sine => src.set_type(web::OscillatorType::Sine),
+        Waveform::Saw => src.set_type(web::OscillatorType::Sawtooth),
+        Waveform::Triangle => src.set_type(web::OscillatorType::Triangle),
     }
+    src.frequency().set_value(freq.0);
+    let gain = web::GainNode::new(audio_ctx).ok()?;
+    gain.gain().set_value(0.0);
+    let now = audio_ctx.current_time();
+    let t0 = now + 0.005;
+    _ = gain
+        .gain()
+        .linear_ramp_to_value_at_time(velocity, t0 + 0.02);
+    _ = gain
+        .gain()
+        .linear_ramp_to_value_at_time(0.0, t0 + duration_sec);
+    _ = src.connect_with_audio_node(&gain);
+    _ = gain.connect_with_audio_node(voice_gain);
+    _ = gain.connect_with_audio_node(delay_send);
+    _ = gain.connect_with_audio_node(reverb_send);
+    _ = src.start_with_when(t0);
+    let stop_time = t0 + duration_sec + 0.05;
+    _ = src.stop_with_when(stop_time);
+    Some(ActiveNote {
+        osc: src,
+        gain,
+        stop_time,
+    })
 }
 
 // Create analyser and an appropriately sized buffer

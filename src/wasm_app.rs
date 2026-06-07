@@ -293,6 +293,7 @@ async fn init() -> anyhow::Result<()> {
                     swirl_initialized: false,
                     pulse_energy: [0.0, 0.0, 0.0],
                     config: constants::Config::default(),
+                    active_notes: Vec::new(),
                 }));
                 // Start RAF loop
                 frame::start_loop(frame_ctx);

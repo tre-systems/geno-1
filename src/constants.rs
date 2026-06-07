@@ -58,6 +58,9 @@ pub const R_SEND_CLAMP_MAX: f32 = 1.5;
 pub const LEVEL_BASE: f32 = 0.55;
 pub const LEVEL_SPAN: f32 = 0.45;
 
+// Maximum number of concurrent in-flight notes (oscillator+gain pairs).
+pub const MAX_POLYPHONY: usize = 24;
+
 // Color adjustments
 
 // Camera
