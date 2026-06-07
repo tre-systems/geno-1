@@ -63,7 +63,8 @@ impl<'a> FrameContext<'a> {
         let now = Instant::now();
         let dt = now - self.last_instant;
         self.last_instant = now;
-        let dt_sec = dt.as_secs_f32();
+        // Clamp the delta so a stall (background tab, GC) eases the visuals back in.
+        let dt_sec = dt.as_secs_f32().min(MAX_FRAME_DT_SEC);
 
         // Ordered per-frame systems. Note generation + audio scheduling run off-frame
         // in the audio scheduler; the frame fires timed pulses and renders.
@@ -199,19 +200,11 @@ impl<'a> FrameContext<'a> {
                 eng.voices.iter().map(|v| v.position).collect()
             };
             let pulse_energy_snapshot: Vec<f32> = self.pulses.borrow().clone();
-            // A gentle raised-cosine swell that peaks on each beat at the current tempo,
-            // for a subtle visual "breath" synced to the music.
-            let breath = {
-                let bpm = self.engine.borrow().params.bpm.0.max(1.0) as f64;
-                let phase = (self.audio_ctx.current_time() / (60.0 / bpm)).fract();
-                (0.5 + 0.5 * (std::f64::consts::TAU * phase).cos()) as f32
-            };
             if let Err(e) = g.render(
                 dt_sec,
                 &voice_positions,
                 &pulse_energy_snapshot,
                 &self.voice_pitch,
-                breath,
             ) {
                 log::error!("render error: {:?}", e);
             }

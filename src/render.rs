@@ -355,7 +355,6 @@ impl<'a> GpuState<'a> {
         voice_positions: &[Vec3],
         pulse_energy: &[f32],
         voice_pitch: &[f32],
-        breath: f32,
     ) -> Result<(), wgpu::SurfaceError> {
         self.resize_if_needed(self.width, self.height);
         self.time_accum += dt_sec.max(0.0);
@@ -431,7 +430,7 @@ impl<'a> GpuState<'a> {
                 ripple_uv: self.ripple_uv,
                 ripple_t0: self.ripple_t0,
                 ripple_amp: self.ripple_amp,
-                harmony: [self.harmony[0], self.harmony[1], breath, 0.0],
+                harmony: [self.harmony[0], self.harmony[1], 0.0, 0.0],
             };
             self.queue
                 .write_buffer(&self.waves.uniform_buffer, 0, bytemuck::bytes_of(&w));

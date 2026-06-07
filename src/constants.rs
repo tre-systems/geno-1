@@ -10,6 +10,10 @@ pub const PULSE_ENERGY_DECAY_PER_SEC: f32 = 1.6;
 pub const PULSE_RISE_TAU_SEC: f32 = 0.10;
 pub const PULSE_FALL_TAU_SEC: f32 = 0.45;
 
+// Clamp on the per-frame delta so a stall (background tab, GC pause) eases the visuals
+// back in instead of jerking them forward.
+pub const MAX_FRAME_DT_SEC: f32 = 0.05;
+
 // Pointer speed clamp (normalized units per second)
 pub const POINTER_SPEED_MAX: f32 = 10.0;
 

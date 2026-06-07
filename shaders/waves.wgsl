@@ -22,7 +22,7 @@ struct WaveUniforms {
     ripple_uv: vec2<f32>,
     ripple_t0: f32,
     ripple_amp: f32,
-    harmony: vec4<f32>, // x = hue_shift, y = warmth, z = beat breath (all 0..1)
+    harmony: vec4<f32>, // x = hue_shift, y = warmth (both 0..1)
 };
 
 @group(0) @binding(0) var<uniform> u: WaveUniforms;
@@ -191,12 +191,11 @@ fn fs_waves(inp: VsOut) -> @location(0) vec4<f32> {
         col = col * (1.0 - a) + layer_col * a;
     }
 
-    // Atmospheric finishing pass, with a gentle beat-synced breath.
-    let breath = u.harmony.z;
+    // Atmospheric finishing pass.
     let vignette = 1.0 - smoothstep(0.38, 1.12, length(cuv0));
     let halo = exp(-3.9 * length(cuv0));
-    col *= mix(0.74, 1.06, vignette) * (1.0 + 0.055 * breath);
-    col += vec3<f32>(0.022, 0.040, 0.090) * halo * (0.28 + 0.72 * u.ambient) * (1.0 + 0.6 * breath);
+    col *= mix(0.74, 1.06, vignette);
+    col += vec3<f32>(0.022, 0.040, 0.090) * halo * (0.28 + 0.72 * u.ambient);
 
     let grain = hash2(cuv0 * 640.0 + vec2<f32>(0.13 * t, -0.09 * t));
     col += (grain - 0.5) * 0.012;
