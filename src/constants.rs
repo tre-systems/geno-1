@@ -73,3 +73,27 @@ pub const ENGINE_DRAG_MAX_RADIUS: f32 = 1.0;
 // Post-processing defaults
 pub const BLOOM_STRENGTH: f32 = 1.05;
 pub const BLOOM_THRESHOLD: f32 = 0.54;
+
+// Click-to-note mapping (pointer tap on empty space)
+// Pitch spans CLICK_NOTE_MIDI_SPAN semitones across the canvas width from a base.
+pub const CLICK_NOTE_BASE_MIDI: f32 = 60.0;
+pub const CLICK_NOTE_MIDI_SPAN: f32 = 24.0;
+pub const CLICK_VEL_BASE: f32 = 0.35;
+pub const CLICK_VEL_SPAN: f32 = 0.65;
+pub const CLICK_DUR_BASE_SEC: f64 = 0.35;
+pub const CLICK_DUR_SPAN_SEC: f64 = 0.25;
+
+// Swirl strength fed to the waves shader each frame
+pub const SWIRL_RENDER_STRENGTH_BASE: f32 = 0.28;
+pub const SWIRL_RENDER_STRENGTH_ENERGY: f32 = 0.85;
+pub const SWIRL_RENDER_STRENGTH_SPEED: f32 = 0.15;
+
+// Pulse clamps: accumulated per-voice energy vs. smoothed visual pulse
+pub const PULSE_ENERGY_MAX: f32 = 1.8;
+pub const PULSE_MAX: f32 = 1.5;
+
+// Analyser-driven ambient response
+pub const ANALYSER_BINS_SAMPLED: usize = 16; // low bins averaged for ambient energy
+pub const ANALYSER_DB_FLOOR: f32 = 100.0; // dB floor for normalizing analyser output
+pub const AMBIENT_PULSE_GAIN: f32 = 0.05; // how much ambient energy lifts voice pulses
+pub const AMBIENT_CLEAR_SCALE: f32 = 0.9; // ambient energy -> background clear amount

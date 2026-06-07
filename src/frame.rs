@@ -70,8 +70,9 @@ impl<'a> FrameContext<'a> {
                 let n = pulses_ref.len().min(3);
                 for ev in &note_events {
                     if ev.voice_index < n {
-                        self.pulse_energy[ev.voice_index] =
-                            (self.pulse_energy[ev.voice_index] + ev.velocity as f32).min(1.8);
+                        self.pulse_energy[ev.voice_index] = (self.pulse_energy[ev.voice_index]
+                            + ev.velocity as f32)
+                            .min(PULSE_ENERGY_MAX);
                     }
                 }
                 smooth_pulses(&mut pulses_ref, &mut self.pulse_energy, dt_sec);
@@ -134,10 +135,10 @@ impl<'a> FrameContext<'a> {
                     a.get_float_frequency_data(&mut buf);
                 }
                 let mut sum = 0.0f32;
-                let take = (bins.min(16)) as u32;
+                let take = (bins.min(ANALYSER_BINS_SAMPLED)) as u32;
                 for i in 0..take {
                     let v = self.analyser_buf.borrow()[i as usize];
-                    let lin = ((v + 100.0) / 100.0).clamp(0.0, 1.0);
+                    let lin = ((v + ANALYSER_DB_FLOOR) / ANALYSER_DB_FLOOR).clamp(0.0, 1.0);
                     sum += lin;
                 }
                 let avg = sum / take as f32;
@@ -146,11 +147,11 @@ impl<'a> FrameContext<'a> {
                     // update both self.pulses and local copy
                     let mut pulses_ref = self.pulses.borrow_mut();
                     for i in 0..n {
-                        pulses_ref[i] = (pulses_ref[i] + avg * 0.05).min(1.5);
+                        pulses_ref[i] = (pulses_ref[i] + avg * AMBIENT_PULSE_GAIN).min(PULSE_MAX);
                     }
                 }
                 if let Some(g) = &mut self.gpu {
-                    g.set_ambient_clear(avg * 0.9);
+                    g.set_ambient_clear(avg * AMBIENT_CLEAR_SCALE);
                 }
             }
 
@@ -171,7 +172,9 @@ impl<'a> FrameContext<'a> {
                     .sqrt()
                     / 1.0)
                     .clamp(0.0, 1.0);
-                let strength = 0.28 + 0.85 * self.swirl_energy + 0.15 * speed_norm;
+                let strength = SWIRL_RENDER_STRENGTH_BASE
+                    + SWIRL_RENDER_STRENGTH_ENERGY * self.swirl_energy
+                    + SWIRL_RENDER_STRENGTH_SPEED * speed_norm;
                 g.set_swirl(self.swirl_pos, strength, true);
                 let w = self.canvas.width();
                 let h = self.canvas.height();
@@ -268,7 +271,7 @@ fn smooth_pulses(pulses: &mut [f32], pulse_energy: &mut [f32; 3], dt_sec: f32) {
     let alpha_up = 1.0 - (-dt_sec / tau_up).exp();
     let alpha_down = 1.0 - (-dt_sec / tau_down).exp();
     for i in 0..n {
-        let target = pulse_energy[i].clamp(0.0, 1.5);
+        let target = pulse_energy[i].clamp(0.0, PULSE_MAX);
         let alpha = if target > pulses[i] {
             alpha_up
         } else {

@@ -1,5 +1,8 @@
 use crate::audio;
-use crate::constants::{CAMERA_Z, ENGINE_DRAG_MAX_RADIUS, PICK_SPHERE_RADIUS, SPREAD, Z_OFFSET};
+use crate::constants::{
+    CAMERA_Z, CLICK_DUR_BASE_SEC, CLICK_DUR_SPAN_SEC, CLICK_NOTE_BASE_MIDI, CLICK_NOTE_MIDI_SPAN,
+    CLICK_VEL_BASE, CLICK_VEL_SPAN, ENGINE_DRAG_MAX_RADIUS, PICK_SPHERE_RADIUS, SPREAD, Z_OFFSET,
+};
 use crate::core::{midi_to_hz, MusicEngine};
 use crate::input;
 use crate::render;
@@ -149,9 +152,9 @@ fn wire_pointerup(w: &InputWiring) {
         } else {
             let [uvx, uvy] = input::pointer_canvas_uv(&ev, &w.canvas);
             if uvx.is_finite() && uvy.is_finite() {
-                let midi = 60.0 + uvx * 24.0;
-                let freq = midi_to_hz(midi as f32);
-                let vel = (0.35 + 0.65 * uvy) as f32;
+                let midi = CLICK_NOTE_BASE_MIDI + uvx * CLICK_NOTE_MIDI_SPAN;
+                let freq = midi_to_hz(midi);
+                let vel = CLICK_VEL_BASE + CLICK_VEL_SPAN * uvy;
                 let eng = w.engine.borrow();
                 let norm_xs: Vec<f32> = eng
                     .voices
@@ -159,7 +162,7 @@ fn wire_pointerup(w: &InputWiring) {
                     .map(|v| (v.position.x / 3.0).clamp(-1.0, 1.0) * 0.5 + 0.5)
                     .collect();
                 let best_i = crate::input::nearest_index_by_uvx(&norm_xs, uvx);
-                let dur = 0.35 + 0.25 * (1.0 - uvy as f64);
+                let dur = CLICK_DUR_BASE_SEC + CLICK_DUR_SPAN_SEC * (1.0 - uvy as f64);
                 let wf = eng.configs[best_i].waveform;
                 drop(eng);
                 audio::trigger_one_shot(
