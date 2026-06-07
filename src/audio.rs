@@ -27,20 +27,14 @@ fn create_gain(
     audio_ctx: &web::AudioContext,
     value: f32,
     label: &str,
-) -> Result<web::GainNode, ()> {
-    match web::GainNode::new(audio_ctx) {
-        Ok(g) => {
-            g.gain().set_value(value);
-            Ok(g)
-        }
-        Err(e) => {
-            log::error!("{} GainNode error: {:?}", label, e);
-            Err(())
-        }
-    }
+) -> anyhow::Result<web::GainNode> {
+    let g =
+        web::GainNode::new(audio_ctx).map_err(|e| anyhow::anyhow!("{label} GainNode: {e:?}"))?;
+    g.gain().set_value(value);
+    Ok(g)
 }
 
-pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> Result<FxBuses, ()> {
+pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> anyhow::Result<FxBuses> {
     // Master gain
     let master_gain = create_gain(audio_ctx, 0.25, "Master")?;
 
@@ -48,10 +42,7 @@ pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> Result<FxBuses, ()> {
     let sat_pre = create_gain(audio_ctx, 0.9, "sat pre")?;
     #[allow(deprecated)]
     let saturator = web::WaveShaperNode::new(audio_ctx)
-        .map_err(|e| {
-            log::error!("WaveShaperNode error: {:?}", e);
-        })
-        .map_err(|_| ())?;
+        .map_err(|e| anyhow::anyhow!("WaveShaperNode: {e:?}"))?;
     // Build arctan curve
     let curve_len: u32 = 2048;
     let drive: f32 = 1.6;
@@ -75,11 +66,8 @@ pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> Result<FxBuses, ()> {
 
     // Reverb bus
     let reverb_in = create_gain(audio_ctx, 1.0, "Reverb in")?;
-    let reverb = web::ConvolverNode::new(audio_ctx)
-        .map_err(|e| {
-            log::error!("ConvolverNode error: {:?}", e);
-        })
-        .map_err(|_| ())?;
+    let reverb =
+        web::ConvolverNode::new(audio_ctx).map_err(|e| anyhow::anyhow!("ConvolverNode: {e:?}"))?;
     reverb.set_normalize(true);
     // Create a long, dark stereo impulse response procedurally
     {
@@ -123,16 +111,10 @@ pub fn build_fx_buses(audio_ctx: &web::AudioContext) -> Result<FxBuses, ()> {
     let delay_in = create_gain(audio_ctx, 1.0, "Delay in")?;
     let delay = audio_ctx
         .create_delay_with_max_delay_time(3.0)
-        .map_err(|e| {
-            log::error!("DelayNode error: {:?}", e);
-        })
-        .map_err(|_| ())?;
+        .map_err(|e| anyhow::anyhow!("DelayNode: {e:?}"))?;
     delay.delay_time().set_value(0.55);
     let delay_tone = web::BiquadFilterNode::new(audio_ctx)
-        .map_err(|e| {
-            log::error!("BiquadFilterNode error: {:?}", e);
-        })
-        .map_err(|_| ())?;
+        .map_err(|e| anyhow::anyhow!("BiquadFilterNode: {e:?}"))?;
     delay_tone.set_type(web::BiquadFilterType::Lowpass);
     delay_tone.frequency().set_value(1400.0);
     let delay_feedback = create_gain(audio_ctx, 0.6, "Delay feedback")?;
@@ -217,18 +199,15 @@ pub fn wire_voices(
     master_gain: &web::GainNode,
     delay_in: &web::GainNode,
     reverb_in: &web::GainNode,
-) -> Result<VoiceRouting, ()> {
+) -> anyhow::Result<VoiceRouting> {
     let mut voice_gains: Vec<web::GainNode> = Vec::new();
     let mut voice_panners: Vec<web::PannerNode> = Vec::new();
     let mut delay_sends_vec: Vec<web::GainNode> = Vec::new();
     let mut reverb_sends_vec: Vec<web::GainNode> = Vec::new();
 
     for pos in initial_positions.iter() {
-        let panner = web::PannerNode::new(audio_ctx)
-            .map_err(|e| {
-                log::error!("PannerNode error: {:?}", e);
-            })
-            .map_err(|_| ())?;
+        let panner =
+            web::PannerNode::new(audio_ctx).map_err(|e| anyhow::anyhow!("PannerNode: {e:?}"))?;
         panner.set_panning_model(web::PanningModelType::Hrtf);
         panner.set_distance_model(web::DistanceModelType::Inverse);
         panner.set_ref_distance(0.5);
@@ -237,15 +216,15 @@ pub fn wire_voices(
         panner.position_y().set_value(pos.y as f32);
         panner.position_z().set_value(pos.z as f32);
 
-        let gain = create_gain(audio_ctx, 0.0, "Voice gain").map_err(|_| ())?;
+        let gain = create_gain(audio_ctx, 0.0, "Voice gain")?;
         _ = gain.connect_with_audio_node(&panner);
         _ = panner.connect_with_audio_node(master_gain);
 
-        let d_send = create_gain(audio_ctx, 0.4, "Delay send").map_err(|_| ())?;
+        let d_send = create_gain(audio_ctx, 0.4, "Delay send")?;
         _ = d_send.connect_with_audio_node(delay_in);
         delay_sends_vec.push(d_send);
 
-        let r_send = create_gain(audio_ctx, 0.65, "Reverb send").map_err(|_| ())?;
+        let r_send = create_gain(audio_ctx, 0.65, "Reverb send")?;
         _ = r_send.connect_with_audio_node(reverb_in);
         reverb_sends_vec.push(r_send);
 
@@ -260,6 +239,3 @@ pub fn wire_voices(
         reverb_sends: reverb_sends_vec,
     })
 }
-
-// Public create_gain used across modules
-// (no-op) use the Result-returning `create_gain` defined above for internal wiring

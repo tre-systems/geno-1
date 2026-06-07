@@ -192,8 +192,8 @@ async fn init() -> anyhow::Result<()> {
                 // FX buses
                 let fx = match audio::build_fx_buses(&audio_ctx) {
                     Ok(f) => f,
-                    Err(_) => {
-                        log::error!("audio FX graph initialization failed");
+                    Err(e) => {
+                        log::error!("audio FX graph initialization failed: {e:?}");
                         show_audio_error(&document, "FX graph initialization failed");
                         return;
                     }
@@ -219,8 +219,8 @@ async fn init() -> anyhow::Result<()> {
                     &reverb_in,
                 ) {
                     Ok(r) => r,
-                    Err(_) => {
-                        log::error!("voice routing initialization failed");
+                    Err(e) => {
+                        log::error!("voice routing initialization failed: {e:?}");
                         show_audio_error(&document, "voice routing initialization failed");
                         return;
                     }
