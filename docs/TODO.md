@@ -52,6 +52,18 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
   voice click toggles its mute state in the hint.
 - Cross-browser WebGPU checks (Chrome / Edge, and Firefox once supported).
 
+## Pattern consistency
+
+Converge these toward the patterns in [`ARCHITECTURE.md`](ARCHITECTURE.md):
+
+- Route the `T` key (random root + mode) through a seeded `MusicEngine` method instead of
+  `js_sys::Math::random()`, so it is deterministic and host-testable.
+- Reuse one note-trigger path: have the scheduled-note loop call `audio::trigger_one_shot` rather than
+  inlining a second oscillator+envelope block.
+- Funnel all input through a single queue the frame loop drains (generalize the ripple slot), and fold
+  the `H`-only keydown listener into the main dispatch.
+- Add a runtime `Config` tier seeded from `constants.rs` for presets and live tuning.
+
 ## Maintenance
 
 - Keep dependencies current (`wgpu` and `rand` are a few versions behind).

@@ -6,8 +6,8 @@ for spatial audio, and renders an ambient wave field that reacts to the music an
 gestures. The target platform is desktop web browsers with WebGPU; there is no WebGL fallback, and
 mobile is not a focus.
 
-This document describes how the system is built. The backlog of intended work lives in
-[`TODO.md`](TODO.md).
+This document describes how the system is built. For the code-level patterns and module map see
+[`ARCHITECTURE.md`](ARCHITECTURE.md); the backlog of intended work lives in [`TODO.md`](TODO.md).
 
 ## Capabilities
 
