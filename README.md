@@ -5,211 +5,138 @@
 ![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0?style=for-the-badge&logo=webassembly&logoColor=white)
 ![WebGPU](https://img.shields.io/badge/WebGPU-005A9C?style=for-the-badge&logo=gpu&logoColor=white)
-
-[![CI](https://github.com/rgilks/geno-1/actions/workflows/ci.yml/badge.svg)](https://github.com/rgilks/geno-1/actions/workflows/ci.yml)
+[![CI](https://github.com/tre-systems/geno-1/actions/workflows/ci.yml/badge.svg)](https://github.com/tre-systems/geno-1/actions/workflows/ci.yml)
 
 </div>
 
 <div align="center">
- <img src="/docs/screenshot.png" alt="geno-1 Screenshot" width="902" />
-  <br />
-  <a href='https://ko-fi.com/N4N31DPNUS' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi2.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-  <hr />
+  <img src="docs/screenshot.png" alt="geno-1 screenshot" width="902" />
 </div>
 
-### Project Status (v1.2 - A Grade)
+Geno-1 is a generative audiovisual instrument built with Rust + WebAssembly + WebGPU + WebAudio.
+Three spatialised voices improvise over selectable scales and tunings while an ambient wave field
+reacts to the music and to pointer gestures. It is the foundational Geno instrument; its sibling
+[Geno-2](https://github.com/tre-systems/geno-2) takes the same stack in a different artistic direction.
 
-**🎵 Advanced Audio Engine:**
+- Live: [https://geno-1.tre.systems/](https://geno-1.tre.systems/)
+- [Buy me a coffee](https://ko-fi.com/N4N31DPNUS)
 
-- 3-voice polyphonic system with configurable parameters (trigger probability, octave offset, duration)
-- Complete musical alphabet support (A-G keys) with 7 diatonic modes (1-7 keys)
-- **Microtonality system**: global detune (±200¢), alternative tuning systems (19-TET, 24-TET, 31-TET)
-- Professional spatial audio: per-voice `PannerNode` with real-time 3D positioning
-- Master effects chain: convolution reverb, dark feedback delay, saturation, per-voice sends
-- Gesture-based audio unlock with professional start overlay
+## Highlights
 
-**🎨 Immersive Visuals:**
+- Three-voice generative engine (sine / saw / triangle) on an eighth-note grid, with per-voice
+  trigger probability, octave offset, and note duration.
+- Full diatonic mode set (`A`–`G` roots, Ionian through Locrian) plus microtonal tunings: global
+  ±200¢ detune and 19/24/31-TET pentatonic scales.
+- Spatial audio: per-voice HRTF panners feed a shared convolution reverb, feedback delay, and
+  saturation bus; send levels follow each voice's position in 3D space.
+- WebGPU wave field: layered noise sheets with voice-reactive displacement, a pointer-driven swirl
+  with inertial physics, and click ripples.
+- HDR post-processing: bright-pass bloom, separable blur, ACES tonemap, vignette, and film grain.
+- Host-tested core (31 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
 
-- Ambient waves background with voice-reactive displacement and proximity effects
-- Advanced post-processing: HDR bright pass, separable blur, ACES tonemap, vignette, film grain
-- Pointer-driven swirl distortion with inertial physics and exponential falloff
-- Click ripple propagation with configurable timing and amplitude
-- Real-time performance monitoring with FPS measurement
+## Stack
 
-**🎮 Interactive Controls:**
+- Rust 2021, single `app-web` crate
+- WebAssembly (`wasm-pack`)
+- WebGPU (`wgpu`, WGSL shaders) — required, no WebGL fallback
+- WebAudio (procedural synthesis + FX graph)
+- Cloudflare Workers static hosting (`wrangler`)
 
-- Comprehensive keyboard mapping: A-G (root), 1-7 (mode), R (regenerate), T (random), Space (pause)
-- Voice interaction: click (mute), Alt+click (solo), Shift+click (reseed), drag (spatial position)
-- Tempo (←/→), volume (↑/↓), fullscreen (Enter/Escape) with dynamic BPM display
-- Ray-picking system for precise voice positioning with visual feedback
+## Controls
 
-**🛠️ Professional Quality:**
+The Start overlay lists every binding; press `H` at any time to toggle it.
 
-- 31 comprehensive tests including property-based testing for mathematical functions
-- Zero compilation warnings with strict linting (`clippy -D warnings`)
-- Enhanced error handling with user-friendly WebGPU failure messages
-- Professional CI/CD with automated testing, performance validation, and deployment
+**Keyboard**
 
-### Demo
+- `A`–`G`: set root note
+- `1`–`7`: set diatonic mode (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian)
+- `8` / `9` / `0`: select 19 / 24 / 31-TET pentatonic
+- `P`: reset to C Major pentatonic
+- `R`: regenerate all voice sequences
+- `T`: randomise root + mode
+- `Space`: pause / resume
+- `,` / `.`: detune ±50¢ (hold `Shift` for ±10¢ fine steps)
+- `/`: reset detune to 0¢
+- `←` / `→`: tempo (BPM, clamped 40–240)
+- `↑` / `↓`: master volume
+- `M`: mute / unmute master
+- `Enter` / `Esc`: enter / exit fullscreen
+- `H`: toggle the help panel
 
-- Local: see Run (Web) below. After `npm run dev`, open `http://localhost:8787`.
-- Hosted: [https://geno-1.tre.systems/](https://geno-1.tre.systems/)
+**Pointer**
 
-### Requirements
+- Click empty space: play a one-shot note (pitch from horizontal position, velocity from vertical) and spawn a ripple
+- Click a voice: toggle mute
+- `Alt`+click a voice: solo
+- `Shift`+click a voice: reseed that voice's sequence
+- Drag a voice: reposition it on the floor plane; spatial audio follows
+- Move the pointer: drive the swirl distortion field
+
+## Requirements
 
 - Node 20+
 - Rust (stable, 2021 edition)
-- wasm-pack (install: `curl -sSfL https://rustwasm.github.io/wasm-pack/installer/init.sh | sh`)
-- Desktop browser with WebGPU enabled
+- `wasm-pack` (`curl -sSfL https://rustwasm.github.io/wasm-pack/installer/init.sh | sh`)
+- A WebGPU-capable browser (Chrome / Edge 113+). If audio does not start, click the Start overlay.
 
-Notes:
+## Local Development
 
-- WebGL fallback is intentionally avoided; WebGPU is required.
-- If audio does not start, click the Start overlay.
-- Input coordinates: canvas UV origin is top-left (uv.y = 0 at top). Pointer-driven swirl and click ripple use this convention.
-
-### Run
-
-- `npm run dev` (builds, serves at http://localhost:8787, and opens the browser)
+- `npm install`
+- `npm run dev` — builds, serves at <http://localhost:8787>, and live-reloads
 
 Additional scripts:
 
-- `npm run clean` (removes build artifacts)
-- `npm run nuke` (full reset: removes node_modules, reinstalls, and runs dev)
-- `npm run deps` (check for dependency updates)
-- `npm run deps:update` (update dependencies and run nuke)
+- `npm run clean` — remove build artifacts
+- `npm run nuke` — full reset (remove `node_modules`, reinstall, run dev)
+- `npm run deps` / `npm run deps:update` — check / apply dependency updates
 
-**Quick Controls:**
+## Quality Gate
 
-**🎹 Musical Controls:**
+`npm run check` runs the full gate (also enforced by the git hooks below):
 
-- **A-G**: Set root note (complete musical alphabet)
-- **1-7**: Select diatonic mode (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian)
-- **8-0**: Alternative tuning systems (8=19-TET, 9=24-TET, 0=31-TET pentatonic)
-- **R**: Regenerate all voice sequences
-- **T**: Random root note + mode combination
+- `cargo fmt --check`
+- `cargo clippy -- -D warnings`
+- `cargo test`
+- production wasm build
+- headless browser integration test (`web-test.js`, Puppeteer)
 
-**🎵 Microtonality Controls:**
+For quick local iteration, `npm run check:rust` runs the Rust checks only.
 
-- **,**: Decrease global detune by 50¢ (Shift+, for 10¢ fine adjustment)
-- **.**: Increase global detune by 50¢ (Shift+. for 10¢ fine adjustment)
-- **/**: Reset detune to 0¢
+## Git Hooks
 
-**🎛️ Playback Controls:**
-
-- **Space**: Pause/resume playback
-- **←/→**: Adjust tempo (BPM shown in hint overlay)
-- **↑/↓**: Adjust master volume
-- **M**: Mute/unmute master output
-- **Enter/Escape**: Toggle fullscreen
-
-**🎯 Voice Interaction:**
-
-- **Click voice**: Toggle mute (shows "muted" in hint)
-- **Alt+Click**: Solo voice (mutes others)
-- **Shift+Click**: Reseed voice sequence
-- **Drag voice**: Reposition in 3D space (spatial audio feedback)
-
-**🎨 Visual Effects:**
-
-- **Mouse movement**: Creates trailing swirl distortion with inertial physics
-- **Click canvas**: Generates ripple effects that propagate outward
-- **Corner proximity**: Affects master saturation (clean ↔ distorted) and delay emphasis
-
-### Pre-commit Check
-
-- Run all checks and tests locally: `npm run check`
-  - Rust: `cargo fmt --check`, `cargo clippy` (deny warnings), `cargo test` (workspace)
-  - Web: build, serve, and execute the headless browser test
-
-### Git hooks (local safety checks)
-
-This repo uses native Git hooks in `.githooks` (no Husky dependency). Enable them once per clone:
+This repo uses native Git hooks in `.githooks` (no Husky). Enable them once per clone:
 
 ```bash
-git config core.hooksPath .githooks
+npm run setup   # or: git config core.hooksPath .githooks
 ```
 
-Or run the convenience script (also ensures hooks are executable):
+- `pre-commit`: fast Rust checks (`npm run check:rust`)
+- `pre-push`: the full project check (`npm run check`)
 
-```bash
-npm run setup
-```
+## Deployment
 
-Hooks provided:
+Deployed to Cloudflare Workers as static assets.
 
-- `pre-commit`: runs fast Rust checks (`npm run check:rust`) to keep commits quick
-- `pre-push`: runs the full project check (`npm run check`) before code leaves your machine
+- Build: `npm run build` — populates `dist/` with `index.html` and `pkg/{app_web.js, app_web_bg.wasm, env.js}`
+- Deploy: `npx --yes wrangler deploy` (config in `wrangler.toml`)
+- `worker.js` sets cache-control headers; `pkg/env.js` carries a git-SHA version that `index.html`
+  appends to the wasm import (`?v=<version>`) for deterministic cache-busting.
 
-The full check enforces Rust fmt/clippy, runs unit tests, builds the web bundle, serves it, and executes the headless Puppeteer test. If any step fails, Git aborts the commit/push.
+CI (`.github/workflows/ci.yml`) runs `npm run check` on every push/PR and deploys on push to `main`
+when `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are configured.
 
-### Deploy (Cloudflare Workers)
+## Project Structure
 
-This repo is configured to deploy via Cloudflare Workers; cache-control headers for static assets are set in `worker.js`.
+- `src/core/music.rs` — generative music engine (voices, scales, scheduling)
+- `src/audio.rs` — WebAudio graph and spatial routing
+- `src/render.rs`, `src/render/` — WebGPU pipeline (waves, bloom, post-processing, targets)
+- `src/events/` — keyboard and pointer input
+- `src/frame.rs` — animation loop, swirl physics, FX modulation
+- `src/wasm_app.rs` — WASM entry point and initialisation
+- `shaders/` — WGSL shaders (`waves.wgsl`, `post.wgsl`)
+- `index.html`, `worker.js`, `wrangler.toml` — web front-end and deployment
 
-- Build: `npm run build`
-- Deploy: `npx --yes wrangler deploy`
-  - Config: `wrangler.toml` (assets directory is `dist/`)
-  - Build populates `dist/` with only production runtime files: `index.html` and `pkg/{app_web.js, app_web_bg.wasm, env.js}`
-- Worker sets cache-control headers for `.wasm`/`.js`/HTML
+## Docs
 
-#### Build cache-busting
-
-- The build generates `pkg/env.js` with a `version` derived from the current git commit (short SHA, with CI env fallbacks). `index.html` appends `?v=<version>` to the dynamic import of `app_web.js` to ensure deterministic cache busting across deploys.
-
-Headless test:
-
-- `npm run ci` builds, serves, and runs a Puppeteer test locally
-
-### Continuous Integration
-
-- GitHub Actions workflow runs on push/PR:
-  - Builds the web bundle and executes the headless browser test
-  - On push to `main`, deploys to Cloudflare Workers via Wrangler
-  - Requires repo secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
-  - Workflow file: `.github/workflows/ci.yml`
-  - CI tolerates missing WebGPU in headless by skipping engine-coupled assertions
-
-### Live Demo
-
-- Use the hosted app: [`https://geno-1.tre.systems/`](https://geno-1.tre.systems/)
-
-Notes:
-
-- Keeping screenshots/GIFs up to date is intentionally avoided; refer to the live app instead.
-
-### Project Structure
-
-**🦀 Core Rust/WASM Application:**
-
-- `src/lib.rs`: Main WASM entry point and application initialization
-- `src/core/music.rs`: Generative music engine with configurable voice parameters
-- `src/audio.rs`: Web Audio API integration and spatial audio management
-- `src/render.rs`: WebGPU rendering orchestration and pipeline management
-- `src/render/`: Specialized rendering modules (waves, post-processing, targets)
-- `src/events/`: Input handling (keyboard, pointer) with comprehensive key mappings
-- `src/frame.rs`: Animation loop and GPU state management
-
-**🌐 Web Frontend:**
-
-- `index.html`: Main application entry with canvas and overlay UI
-- `worker.js`: Cloudflare Workers deployment with cache-control headers
-- `shaders/`: WGSL shaders for ambient waves and post-processing effects
-
-**🔧 Development & Deployment:**
-
-- `package.json`: Node.js build scripts and development dependencies
-- `Cargo.toml`: Rust dependencies with WebGPU and Web Audio features
-- `.github/workflows/ci.yml`: Comprehensive CI/CD with testing and deployment
-- `tests/`: Comprehensive test suite with property-based testing
-- `web-test.js`: End-to-end browser testing with Puppeteer
-
-**📚 Documentation:**
-
-- `docs/SPEC.md`: Comprehensive technical specification and S-tier roadmap
-- `docs/TODO.md`: Strategic development roadmap and implementation priorities
-
-### Docs
-
-- Project Spec: `docs/SPEC.md`
-- Project TODO: `docs/TODO.md`
+- Architecture and intent: [`docs/SPEC.md`](docs/SPEC.md)
+- Backlog: [`docs/TODO.md`](docs/TODO.md)
