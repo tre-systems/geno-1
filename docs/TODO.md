@@ -1,7 +1,7 @@
 # Geno-1 Backlog
 
 Forward-looking work, roughly in priority order. Current behaviour and architecture are described in
-[`SPEC.md`](SPEC.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## In-scene controls
 

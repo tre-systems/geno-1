@@ -140,7 +140,6 @@ when `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are configured.
 
 ## Docs
 
-- Code structure & patterns: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- System spec & pipelines: [`docs/SPEC.md`](docs/SPEC.md)
+- Architecture, patterns & pipelines: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Diagrams (Graphviz): [`docs/diagrams/`](docs/diagrams/README.md)
 - Backlog: [`docs/TODO.md`](docs/TODO.md)

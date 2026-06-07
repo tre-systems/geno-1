@@ -1,7 +1,8 @@
 # Architecture Guide
 
-This document explains how Geno-1's code is organized and the set of patterns that explain most of
-it. For *what* the system does and the audio/visual pipelines, see [`SPEC.md`](SPEC.md).
+This document explains how Geno-1's code is organized — the system shape, the patterns that explain
+most of it, and the audio/visual pipelines. For controls and the build/run/deploy commands see the
+[README](../README.md); the backlog of intended work lives in [`TODO.md`](TODO.md).
 
 ## System Overview
 
@@ -12,6 +13,11 @@ drains a shared input queue, fires timed visual pulses, modulates global effects
 updates per-voice spatial audio, and renders an audio-reactive wave field with WebGPU. The core logic
 (engine, key maps, picking, the key→command mapping) is plain host-testable Rust; everything
 browser-facing is gated to the wasm target.
+
+Three subsystems share memory in that one module: an **audio engine** (generation and spatial sound), a
+**visual engine** (the WebGPU wave field and post-processing), and an **interaction layer** (keyboard
+and pointer translated into engine and audio changes). The target is desktop browsers with WebGPU —
+there is no WebGL fallback, and mobile is not a focus.
 
 ![System overview](diagrams/system-overview.png)
 
@@ -103,7 +109,10 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 
 ### Audio graph (`audio.rs`)
 
-See the [audio graph diagram](diagrams/audio-graph.png) for the full signal flow.
+See the [audio graph diagram](diagrams/audio-graph.png) for the full signal flow. Each note runs
+`OscillatorNode` → envelope `GainNode` → the voice's `GainNode` → `PannerNode` (HRTF) into a master bus
+with convolution reverb, a feedback delay, and arctan saturation; the `AudioListener` tracks the camera,
+and each voice's reverb/delay sends scale with its distance from it.
 
 - **Construction via factories returning bundle structs.** [`build_fx_buses`](../src/audio.rs) →
   `FxBuses`, [`wire_voices`](../src/audio.rs) → `VoiceRouting`, and [`create_analyser`](../src/audio.rs)
@@ -119,9 +128,22 @@ See the [audio graph diagram](diagrams/audio-graph.png) for the full signal flow
   scheduler (rhythmic notes) and the frame (click-to-play) spawn through it, so node lifetime is bounded
   and explicit rather than left to the GC.
 
+References: [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API),
+[OscillatorNode](https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode),
+[PannerNode](https://developer.mozilla.org/en-US/docs/Web/API/PannerNode) /
+[AudioListener](https://developer.mozilla.org/en-US/docs/Web/API/AudioListener),
+[ConvolverNode](https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode),
+[DelayNode](https://developer.mozilla.org/en-US/docs/Web/API/DelayNode),
+[WaveShaperNode](https://developer.mozilla.org/en-US/docs/Web/API/WaveShaperNode),
+[AnalyserNode](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode).
+
 ### Rendering (`render/`)
 
-See the [render pipeline diagram](diagrams/render-pipeline.png) for the passes.
+See the [render pipeline diagram](diagrams/render-pipeline.png) for the passes: a fullscreen **waves**
+pass (`waves.wgsl`) writes layered noise sheets with swirl displacement, per-voice influence, and click
+ripples into an HDR (`Rgba16Float`) target; then a **bright** pass extracts highlights, a **separable
+blur** builds bloom, and a **composite** pass applies ACES tonemapping, vignette, a hue warp, and film
+grain to the swapchain (`post.wgsl`).
 
 - **Resource-bundle structs + factories** (the GPU mirror of the audio side):
   [`WavesResources` / `create_waves_resources`](../src/render/waves.rs), `PostResources`,
@@ -129,7 +151,10 @@ See the [render pipeline diagram](diagrams/render-pipeline.png) for the passes.
 - **`#[repr(C)]` Pod uniforms.** GPU-facing data is `bytemuck::Pod` / `Zeroable` (`WavesUniforms`,
   `VoicePacked`) uploaded straight to uniform buffers ([`waves.rs`](../src/render/waves.rs)).
 - **Ping-pong offscreen targets.** Bloom runs HDR → half-res `bloom_a` / `bloom_b` ping-pong, recreated
-  on resize (`RenderTargets`). The full pass list is in [`SPEC.md`](SPEC.md).
+  on resize (`RenderTargets`).
+
+References: [WebGPU API](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API),
+[wgpu](https://docs.rs/wgpu), [WGSL spec](https://www.w3.org/TR/WGSL/).
 
 ### Tuning
 

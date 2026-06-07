@@ -58,8 +58,7 @@ assertions, so it stays green in CI.
 - Docs describe the current state in the present tense; keep history in git, not in prose.
 - Typical targets:
   - `README.md`
-  - `docs/SPEC.md` (when architecture/intent changes)
-  - `docs/ARCHITECTURE.md` (when code structure/patterns change)
+  - `docs/ARCHITECTURE.md` (when architecture, code structure, or pipelines change)
   - `docs/TODO.md` (when priorities change)
 
 ## Git Workflow
