@@ -11,6 +11,8 @@ not_found_handling = "single-page-application"
 
 [vars]
 ENVIRONMENT = "production"
+SENTRY_ENVIRONMENT = "production"
+SENTRY_PROJECT = "geno-1"
 
 [[routes]]
 pattern = "geno-1.tre.systems/*"
