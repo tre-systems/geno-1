@@ -58,9 +58,9 @@ digraph SystemOverview {
       style="rounded,filled", penwidth=1.8, margin=22
     ];
 
-    B1 [label=<<B>Canvas</B><BR/><FONT POINT-SIZE="15">#app-canvas: WebGPU surface +<BR/>pointer / keyboard target</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
-    B2 [label=<<B>Overlay DOM</B><BR/><FONT POINT-SIZE="15">start / help panel, hint readout</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
-    B3 [label=<<B>Speakers</B><BR/><FONT POINT-SIZE="15">AudioContext.destination</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Canvas</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">#app-canvas: WebGPU surface +<BR/>pointer / keyboard target</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Overlay DOM</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">start / help panel, hint readout</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Speakers</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">AudioContext.destination</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
   }
 
   // ---- The app-web crate (Rust -> WASM) ----
@@ -76,23 +76,23 @@ digraph SystemOverview {
       style="rounded,filled", penwidth=1.8, margin=22
     ];
 
-    A1 [label=<<B>wasm_app::start</B><BR/><FONT POINT-SIZE="15">entry: build graph, wire input</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    A2 [label=<<B>Input → command queue</B><BR/><FONT POINT-SIZE="15">events::command (host-tested map)</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    A7 [label=<<B>Audio scheduler</B><BR/><FONT POINT-SIZE="15">setInterval; audio clock, lookahead</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e", penwidth=3.0];
-    A3 [label=<<B>Frame loop</B><BR/><FONT POINT-SIZE="15">requestAnimationFrame; ordered systems</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00", penwidth=3.0];
-    A4 [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="15">core: seeded, deterministic</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    A5 [label=<<B>Web Audio graph</B><BR/><FONT POINT-SIZE="15">voices, panners, FX buses</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
-    A6 [label=<<B>WebGPU renderer</B><BR/><FONT POINT-SIZE="15">waves + bloom + post (WGSL)</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    A1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>wasm_app::start</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">entry: build graph, wire input</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Input → command queue</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">events::command (host-tested map)</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A7 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Audio scheduler</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">setInterval; audio clock, lookahead</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e", penwidth=3.0];
+    A3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Frame loop</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">requestAnimationFrame; ordered systems</FONT></TD></TR></TABLE>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00", penwidth=3.0];
+    A4 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Music engine</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">core: seeded, deterministic</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    A5 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Web Audio graph</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">voices, panners, FX buses</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    A6 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>WebGPU renderer</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">waves + bloom + post (WGSL)</FONT></TD></TR></TABLE>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
 
-    A1 -> A7 [label="start scheduler"];
-    A1 -> A3 [label="start RAF"];
-    A2 -> A3 [label="enqueue"];
-    A7 -> A4 [label="step → notes"];
-    A7 -> A5 [label="schedule notes"];
-    A7 -> A3 [label="timed pulses", style=dashed, color="#6b7280", fontcolor="#6b7280"];
-    A3 -> A4 [label="apply commands", style=dashed, color="#6b7280", fontcolor="#6b7280"];
-    A3 -> A5 [label="modulate FX"];
-    A3 -> A6 [label="render frame"];
+    A1 -> A7 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">start scheduler</FONT></TD></TR></TABLE>>];
+    A1 -> A3 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">start RAF</FONT></TD></TR></TABLE>>];
+    A2 -> A3 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">enqueue</FONT></TD></TR></TABLE>>];
+    A7 -> A4 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">step → notes</FONT></TD></TR></TABLE>>];
+    A7 -> A5 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">schedule notes</FONT></TD></TR></TABLE>>];
+    A7 -> A3 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">timed pulses</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280"];
+    A3 -> A4 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">apply commands</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280"];
+    A3 -> A5 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">modulate FX</FONT></TD></TR></TABLE>>];
+    A3 -> A6 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">render frame</FONT></TD></TR></TABLE>>];
   }
 
   // ---- Hosting ----
@@ -108,13 +108,13 @@ digraph SystemOverview {
       style="rounded,filled", penwidth=1.8, margin=22
     ];
 
-    H1 [label=<<B>Worker</B><BR/><FONT POINT-SIZE="15">worker.js: serves dist/ with<BR/>cache-control + SPA routing</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    H1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Worker</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">worker.js: serves dist/ with<BR/>cache-control + SPA routing</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
   }
 
   // ---- Cross-cluster edges ----
-  H1 -> B1 [label="serves index.html + wasm", style=dashed, color="#6b7280", fontcolor="#6b7280"];
-  B2 -> A2 [label="pointer / keydown", lhead=cluster_app];
-  A6 -> B1 [label="present", ltail=cluster_app];
-  A5 -> B3 [label="audio out", ltail=cluster_app];
-  A1 -> B2 [label="audio-init / WebGPU errors", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+  H1 -> B1 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">serves index.html + wasm</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280"];
+  B2 -> A2 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">pointer / keydown</FONT></TD></TR></TABLE>>, lhead=cluster_app];
+  A6 -> B1 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">present</FONT></TD></TR></TABLE>>, ltail=cluster_app];
+  A5 -> B3 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">audio out</FONT></TD></TR></TABLE>>, ltail=cluster_app];
+  A1 -> B2 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">audio-init / WebGPU errors</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
 }

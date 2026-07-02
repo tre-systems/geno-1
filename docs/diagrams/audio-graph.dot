@@ -14,7 +14,7 @@ digraph AudioGraph {
     label=<
       <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
         <TR><TD><FONT POINT-SIZE="34"><B>Audio Graph</B></FONT></TD></TR>
-        <TR><TD><FONT POINT-SIZE="15" COLOR="#357a74">Per-note source → voice strip → master, with reverb / delay sends and master saturation.</FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="15" COLOR="#357a74">Three spatial note voices plus a warm composed sculpture bed, with reverb / delay sends and mastered output.</FONT></TD></TR>
       </TABLE>
     >,
     labelloc=t,
@@ -47,7 +47,7 @@ digraph AudioGraph {
   ];
 
   // ---- Source (engine, host-testable) ----
-  ENG [label=<<B>Audio scheduler → engine.step</B><BR/><FONT POINT-SIZE="14">NoteEvent (voice, freq, vel, dur),<BR/>scheduled on the audio clock</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  ENG [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Audio scheduler → engine.step</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">NoteEvent (voice, freq, vel, dur),<BR/>scheduled on the audio clock</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
 
   // ---- Per-voice strip ----
   subgraph cluster_voice {
@@ -55,11 +55,31 @@ digraph AudioGraph {
       label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>PER-NOTE STRIP</B></FONT></TD></TR></TABLE>>,
       labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
     ];
-    OSC [label=<<B>OscillatorNode</B><BR/><FONT POINT-SIZE="14">per-voice waveform</FONT>>];
-    ENV [label=<<B>GainNode (env)</B><BR/><FONT POINT-SIZE="14">attack / release</FONT>>];
-    VG  [label=<<B>Voice gain</B><BR/><FONT POINT-SIZE="14">distance level</FONT>>];
-    PAN [label=<<B>PannerNode</B><BR/><FONT POINT-SIZE="14">HRTF positional</FONT>>];
+    OSC [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>OscillatorNode</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">per-voice waveform</FONT></TD></TR></TABLE>>];
+    ENV [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>GainNode (env)</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">attack / release</FONT></TD></TR></TABLE>>];
+    VG  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Voice gain</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">distance level</FONT></TD></TR></TABLE>>];
+    PAN [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>PannerNode</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">HRTF positional</FONT></TD></TR></TABLE>>];
     OSC -> ENV -> VG -> PAN;
+  }
+
+  // ---- Persistent sculpture layer ----
+  subgraph cluster_sculpture {
+    graph [
+      label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#0f766e"><B>SCULPTURE LAYER</B></FONT></TD></TR></TABLE>>,
+      labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
+    ];
+    PAD [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Pad oscillators x3</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">just-tuned low chord</FONT></TD></TR></TABLE>>];
+    LFO [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Analog drift LFOs</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">audio-rate detune wobble</FONT></TD></TR></TABLE>>, style="rounded,filled,dashed"];
+    PLP [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Pad tone filters</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">lowpass + mid dip</FONT></TD></TR></TABLE>>];
+    SUB [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Sub sine</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">centred low end</FONT></TD></TR></TABLE>>];
+    NOI [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Noise bed</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">brown-weighted wash</FONT></TD></TR></TABLE>>];
+    STR [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Starfield x5</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">low consonant harmonics</FONT></TD></TR></TABLE>>];
+    SHM [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Octave shimmer</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">dark waveshaped sheen</FONT></TD></TR></TABLE>>];
+    FP  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Field pan</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">scripted / swirl bias</FONT></TD></TR></TABLE>>];
+    LFO -> PAD [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">detune</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280"];
+    PAD -> PLP -> FP;
+    STR -> FP;
+    PLP -> SHM;
   }
 
   // ---- Delay bus ----
@@ -69,12 +89,12 @@ digraph AudioGraph {
       labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
     ];
     DS [label=<<B>Delay send</B>>];
-    DL [label=<<B>DelayNode</B><BR/><FONT POINT-SIZE="14">0.55 s</FONT>>];
-    LT [label=<<B>Biquad lowpass</B><BR/><FONT POINT-SIZE="14">tone</FONT>>];
+    DL [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>DelayNode</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">0.55 s</FONT></TD></TR></TABLE>>];
+    LT [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Delay tone filters</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">lowpass + mid dip</FONT></TD></TR></TABLE>>];
     DF [label=<<B>Delay feedback</B>>];
     DW [label=<<B>Delay wet</B>>];
     DS -> DL -> LT;
-    LT -> DF -> DL [label="feedback"];
+    LT -> DF -> DL [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">feedback</FONT></TD></TR></TABLE>>];
     LT -> DW;
   }
 
@@ -85,9 +105,10 @@ digraph AudioGraph {
       labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
     ];
     RS [label=<<B>Reverb send</B>>];
-    CV [label=<<B>ConvolverNode</B><BR/><FONT POINT-SIZE="14">5 s procedural IR</FONT>>];
+    CV [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>ConvolverNode</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">7 s procedural IR</FONT></TD></TR></TABLE>>];
+    RT [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Reverb tone filters</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">lowpass + mid dip</FONT></TD></TR></TABLE>>];
     RW [label=<<B>Reverb wet</B>>];
-    RS -> CV -> RW;
+    RS -> CV -> RT -> RW;
   }
 
   // ---- Master + saturation ----
@@ -97,26 +118,35 @@ digraph AudioGraph {
       labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
     ];
     MAS [label=<<B>Master gain</B>>, penwidth=3.0];
-    SP  [label=<<B>Sat pre</B>>];
-    WS  [label=<<B>WaveShaperNode</B><BR/><FONT POINT-SIZE="14">arctan drive</FONT>>];
-    SW  [label=<<B>Sat wet</B>>];
-    SD  [label=<<B>Sat dry</B>>];
+    SP  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Sat pre</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">seed-shaped drive</FONT></TD></TR></TABLE>>];
+    WS  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>WaveShaperNode</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">tanh drive</FONT></TD></TR></TABLE>>];
+    SW  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Sat wet</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">slow wander</FONT></TD></TR></TABLE>>];
+    SD  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Sat dry</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">complement</FONT></TD></TR></TABLE>>];
+    OP  [label=<<B>Output pre</B>>];
+    CMP [label=<<B>Dynamics compressor</B>>];
     MAS -> SP -> WS -> SW;
     MAS -> SD;
+    SW -> OP;
+    SD -> OP;
+    OP -> CMP;
   }
 
   // ---- Outputs ----
   DEST [label=<<B>AudioContext.destination</B>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
-  AN   [label=<<B>AnalyserNode</B><BR/><FONT POINT-SIZE="14">optional, drives visuals</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+  AN   [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>AnalyserNode</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">optional, drives visuals</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
 
   // ---- Cross-cluster wiring ----
-  ENG -> OSC [label="spawn at scheduled time", lhead=cluster_voice];
-  PAN -> MAS [label="dry voice", lhead=cluster_master];
-  ENV -> DS  [label="send", style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_delay];
-  ENV -> RS  [label="send", style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_reverb];
+  ENG -> OSC [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">spawn at scheduled time</FONT></TD></TR></TABLE>>, lhead=cluster_voice];
+  PAD -> MAS [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">bed</FONT></TD></TR></TABLE>>, ltail=cluster_sculpture, lhead=cluster_master];
+  SUB -> MAS [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">sub</FONT></TD></TR></TABLE>>, ltail=cluster_sculpture, lhead=cluster_master];
+  NOI -> MAS [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">noise</FONT></TD></TR></TABLE>>, ltail=cluster_sculpture, lhead=cluster_master];
+  FP  -> MAS [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">field</FONT></TD></TR></TABLE>>, ltail=cluster_sculpture, lhead=cluster_master];
+  SHM -> RS  [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">shimmer send</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", ltail=cluster_sculpture, lhead=cluster_reverb];
+  PAN -> MAS [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">dry voice</FONT></TD></TR></TABLE>>, lhead=cluster_master];
+  ENV -> DS  [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">send</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_delay];
+  ENV -> RS  [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">send</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", lhead=cluster_reverb];
   DW  -> MAS [ltail=cluster_delay, lhead=cluster_master];
   RW  -> MAS [ltail=cluster_reverb, lhead=cluster_master];
-  SW  -> DEST;
-  SD  -> DEST;
-  MAS -> AN [label="tap", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+  CMP -> DEST;
+  MAS -> AN [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">tap</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
 }

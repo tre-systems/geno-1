@@ -47,7 +47,7 @@ digraph RenderPipeline {
   ];
 
   // ---- Per-frame inputs (from the frame loop) ----
-  IN [label=<<B>Frame uniforms</B><BR/><FONT POINT-SIZE="14">voice pos + pulse, swirl, ripple,<BR/>ambient energy, time</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  IN [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Frame uniforms</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">voice pos + pulse, swirl, ripple,<BR/>ambient energy, time</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
 
   // ---- GPU passes ----
   subgraph cluster_passes {
@@ -62,27 +62,27 @@ digraph RenderPipeline {
       style="rounded,filled", penwidth=1.8, margin=20
     ];
 
-    WAVES [label=<<B>Waves pass</B><BR/><FONT POINT-SIZE="14">waves.wgsl: noise sheets,<BR/>swirl, voice displacement, ripple</FONT>>];
-    HDR   [label=<<B>HDR target</B><BR/><FONT POINT-SIZE="14">Rgba16Float, full-res</FONT>>, shape=cylinder, height=0.95, fillcolor="#efe9fb:#ffffff"];
-    BRIGHT[label=<<B>Bright pass</B><BR/><FONT POINT-SIZE="14">threshold extract</FONT>>];
-    BLA   [label=<<B>bloom_a</B><BR/><FONT POINT-SIZE="14">half-res</FONT>>, shape=cylinder, height=0.85, fillcolor="#efe9fb:#ffffff"];
+    WAVES [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Waves pass</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">waves.wgsl: noise sheets,<BR/>swirl, voice displacement, ripple</FONT></TD></TR></TABLE>>];
+    HDR   [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>HDR target</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">Rgba16Float, full-res</FONT></TD></TR></TABLE>>, shape=cylinder, height=0.95, fillcolor="#efe9fb:#ffffff"];
+    BRIGHT[label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Bright pass</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">threshold extract</FONT></TD></TR></TABLE>>];
+    BLA   [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>bloom_a</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">half-res</FONT></TD></TR></TABLE>>, shape=cylinder, height=0.85, fillcolor="#efe9fb:#ffffff"];
     BLURH [label=<<B>Blur H</B>>];
-    BLB   [label=<<B>bloom_b</B><BR/><FONT POINT-SIZE="14">half-res</FONT>>, shape=cylinder, height=0.85, fillcolor="#efe9fb:#ffffff"];
+    BLB   [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>bloom_b</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">half-res</FONT></TD></TR></TABLE>>, shape=cylinder, height=0.85, fillcolor="#efe9fb:#ffffff"];
     BLURV [label=<<B>Blur V</B>>];
-    COMP  [label=<<B>Composite</B><BR/><FONT POINT-SIZE="14">post.wgsl: ACES tonemap,<BR/>exposure, vignette, grain</FONT>>, penwidth=3.0];
+    COMP  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Composite</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">post.wgsl: ACES tonemap,<BR/>exposure, vignette, grain</FONT></TD></TR></TABLE>>, penwidth=3.0];
 
     WAVES -> HDR;
     HDR -> BRIGHT;
     BRIGHT -> BLA;
     BLA -> BLURH -> BLB -> BLURV;
-    BLURV -> BLA [label="ping-pong", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
-    HDR -> COMP [label="scene", constraint=false];
-    BLA -> COMP [label="bloom"];
+    BLURV -> BLA [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">ping-pong</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+    HDR -> COMP [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">scene</FONT></TD></TR></TABLE>>, constraint=false];
+    BLA -> COMP [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">bloom</FONT></TD></TR></TABLE>>];
   }
 
   // ---- Output ----
-  SWAP [label=<<B>Swapchain present</B><BR/><FONT POINT-SIZE="14">sRGB</FONT>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+  SWAP [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Swapchain present</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">sRGB</FONT></TD></TR></TABLE>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
 
-  IN -> WAVES [label="per-frame uniforms", lhead=cluster_passes];
+  IN -> WAVES [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">per-frame uniforms</FONT></TD></TR></TABLE>>, lhead=cluster_passes];
   COMP -> SWAP [ltail=cluster_passes];
 }

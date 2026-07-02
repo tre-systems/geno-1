@@ -52,8 +52,8 @@ digraph FramePipeline {
       label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2"><TR><TD ALIGN="LEFT"><FONT POINT-SIZE="16" COLOR="#1e6b43"><B>INPUT (event closures)</B></FONT></TD></TR></TABLE>>,
       labelloc=t, labeljust=l, color="#b8e5c8", fillcolor="#f4fbf6", style="rounded,filled", penwidth=1.8, margin=18
     ];
-    K [label=<<B>keydown</B><BR/><FONT POINT-SIZE="14">command_for_key</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    P [label=<<B>pointer</B><BR/><FONT POINT-SIZE="14">voice click, play, drag, ripple</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    K [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>keydown</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">command_for_key</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>pointer</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">voice click, play, drag, ripple</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
     Q [label=<<B>Command queue</B>>, shape=cylinder, fillcolor="#eaf8ef:#ffffff", color="#22865a", height=0.85];
     K -> Q;
     P -> Q;
@@ -70,8 +70,8 @@ digraph FramePipeline {
       >,
       labelloc=t, labeljust=l, color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=18
     ];
-    SS [label=<<B>engine.step</B><BR/><FONT POINT-SIZE="14">one grid step → notes</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
-    SN [label=<<B>spawn_note</B><BR/><FONT POINT-SIZE="14">schedule at audio time</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    SS [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>engine.step</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">one grid step → notes</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    SN [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>spawn_note</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">schedule at audio time</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
     SS -> SN;
   }
 
@@ -96,26 +96,26 @@ digraph FramePipeline {
   }
 
   // ---- Shared state / resources ----
-  E  [label=<<B>Music engine</B><BR/><FONT POINT-SIZE="14">params, voices, seeded RNGs</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-  PQ [label=<<B>Pulse queue</B><BR/><FONT POINT-SIZE="14">(voice, audio time, vel)</FONT>>, shape=cylinder, fillcolor="#e6fffb:#ffffff", color="#0f766e", height=0.9];
+  E  [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Music engine</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">params, voices, seeded RNGs</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  PQ [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Pulse queue</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">(voice, audio time, vel)</FONT></TD></TR></TABLE>>, shape=cylinder, fillcolor="#e6fffb:#ffffff", color="#0f766e", height=0.9];
   AU [label=<<B>Web Audio graph</B>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
-  NP [label=<<B>Note pool</B><BR/><FONT POINT-SIZE="14">reap + cap</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  NP [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Note pool</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="14">reap + cap</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
   G  [label=<<B>WebGPU renderer</B>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
 
   { rank=same; SS; E; }
   { rank=same; SN; F1; }
 
   // ---- Edges ----
-  Q -> F1 [label="drain", lhead=cluster_frame];
-  E -> SS [label="step", dir=both, ltail=cluster_scheduler];
-  F1 -> E [label="root / mode / tempo / mute…", style=dashed, color="#6b7280", fontcolor="#6b7280"];
-  SN -> AU [label="oscillator + gain"];
-  SN -> NP [label="track"];
-  SN -> PQ [label="timed pulse"];
-  PQ -> F2 [label="fire when due"];
-  F3 -> AU [label="reverb / delay / saturation", constraint=false];
-  F4 -> AU [label="panner + sends", constraint=false];
-  F5 -> G [label="ambient clear", style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
-  F6 -> G [label="swirl, ripple, render"];
+  Q -> F1 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">drain</FONT></TD></TR></TABLE>>, lhead=cluster_frame];
+  E -> SS [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">step</FONT></TD></TR></TABLE>>, dir=both, ltail=cluster_scheduler];
+  F1 -> E [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">root / mode / tempo / mute…</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280"];
+  SN -> AU [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">oscillator + gain</FONT></TD></TR></TABLE>>];
+  SN -> NP [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">track</FONT></TD></TR></TABLE>>];
+  SN -> PQ [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">timed pulse</FONT></TD></TR></TABLE>>];
+  PQ -> F2 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">fire when due</FONT></TD></TR></TABLE>>];
+  F3 -> AU [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">reverb / delay / saturation</FONT></TD></TR></TABLE>>, constraint=false];
+  F4 -> AU [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">panner + sends</FONT></TD></TR></TABLE>>, constraint=false];
+  F5 -> G [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">ambient clear</FONT></TD></TR></TABLE>>, style=dashed, color="#6b7280", fontcolor="#6b7280", constraint=false];
+  F6 -> G [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">swirl, ripple, render</FONT></TD></TR></TABLE>>];
   NP -> AU [style=dashed, color="#6b7280", constraint=false];
 }
