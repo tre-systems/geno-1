@@ -1,4 +1,4 @@
-# Geno-1: Generative Music Visualizer
+# Geno-1: Drift Lattice
 
 <div align="center">
 
@@ -13,10 +13,12 @@
   <img src="docs/screenshot.png" alt="geno-1 screenshot" width="902" />
 </div>
 
-Geno-1 is a generative audiovisual instrument built with Rust + WebAssembly + WebGPU + WebAudio.
-Three spatialised voices improvise over selectable scales and tunings while an ambient wave field
-reacts to the music and to pointer gestures. It is the foundational Geno instrument; its sibling
-[Geno-2](https://github.com/tre-systems/geno-2) takes the same stack in a different artistic direction.
+Geno-1 is a generative audiovisual sound sculpture built with Rust + WebAssembly + WebGPU + WebAudio.
+Three spatialised voices improvise inside a pointer-driven swirl field and click ripples, now extended
+as **Drift Lattice**: a deterministic composed piece with a sustained pad, sub, brown-weighted noise bed,
+dark starfield, shimmer, offline mastering, and synchronized video production. It is the foundational Geno instrument;
+its sibling [Geno-2](https://github.com/tre-systems/geno-2) takes the same stack in a different artistic
+direction.
 
 - Live: [https://geno-1.tre.systems/](https://geno-1.tre.systems/)
 - [Buy me a coffee](https://ko-fi.com/N4N31DPNUS)
@@ -25,10 +27,14 @@ reacts to the music and to pointer gestures. It is the foundational Geno instrum
 
 - Three-voice generative engine (sine / saw / triangle) on an eighth-note grid, with per-voice
   trigger probability, octave offset, and note duration.
+- Drift Lattice composed-piece mode: one seed drives a five-section arc of tempo, just-tuned harmony,
+  voice positions, scripted swirl, ripples, and the matching offline-rendered audio.
 - Full diatonic mode set (`A`–`G` roots, Ionian through Locrian) plus microtonal tunings: global
   ±200¢ detune and 19/24/31-TET pentatonic scales.
-- Spatial audio: per-voice HRTF panners feed a shared convolution reverb, feedback delay, and
-  saturation bus; send levels follow each voice's position in 3D space.
+- Spatial audio: per-voice HRTF panners feed a shared convolution reverb, feedback delay, and saturation
+  bus; a continuous pad/sub/brown-noise/star/shimmer layer gives the piece its long-form body, with
+  slow analog-style pad drift, softer note envelopes, darker upper bands, broad mid-scooped tonal
+  paths, and seed-shaped drive/wetness so the export avoids sterile oscillator precision.
 - WebGPU wave field: layered noise sheets with voice-reactive displacement, a pointer-driven swirl
   with inertial physics, and click ripples — with a palette that follows the current key and mode.
 - HDR post-processing: bright-pass bloom, separable blur, ACES tonemap, vignette, and film grain.
@@ -86,6 +92,9 @@ The Start overlay lists every binding; press `H` at any time to toggle it.
 
 Additional scripts:
 
+- `npm run serve` — serve an already-built `dist/` locally
+- `npm run produce -- --seed 7 --duration 600` — render a finished MP4 with mastered audio and captions
+- `npm run video:capture` / `npm run video:captions` — lower-level production helpers
 - `npm run clean` — remove build artifacts
 - `npm run nuke` — full reset (remove `node_modules`, reinstall, run dev)
 - `npm run deps` / `npm run deps:update` — check / apply dependency updates
@@ -141,5 +150,6 @@ when `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are configured.
 ## Docs
 
 - Architecture, patterns & pipelines: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- Video production workflow: [`docs/VIDEO_PRODUCTION.md`](docs/VIDEO_PRODUCTION.md)
 - Diagrams (Graphviz): [`docs/diagrams/`](docs/diagrams/README.md)
 - Backlog: [`docs/TODO.md`](docs/TODO.md)

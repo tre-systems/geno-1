@@ -10,9 +10,11 @@ Geno-1 is a single Rust crate (`app-web`) compiled to WebAssembly. Two loops dri
 scheduler ([`scheduler.rs`](../src/scheduler.rs)) advances a deterministic music engine and schedules
 notes ahead through a Web Audio graph, and a `requestAnimationFrame` loop ([`frame.rs`](../src/frame.rs))
 drains a shared input queue, fires timed visual pulses, modulates global effects from pointer gestures,
-updates per-voice spatial audio, and renders an audio-reactive wave field with WebGPU. The core logic
-(engine, key maps, picking, the key→command mapping) is plain host-testable Rust; everything
-browser-facing is gated to the wasm target.
+updates per-voice spatial audio, and renders an audio-reactive wave field with WebGPU. A deterministic
+composed-piece model ([`core/piece.rs`](../src/core/piece.rs)) can take over those same controls for
+video capture: one seed drives tempo, tuning, voice positions, swirl, ripples, and the matching offline
+audio export. The core logic (engine, arrangement, key maps, picking, the key→command mapping) is plain
+host-testable Rust; everything browser-facing is gated to the wasm target.
 
 Three subsystems share memory in that one module: an **audio engine** (generation and spatial sound), a
 **visual engine** (the WebGPU wave field and post-processing), and an **interaction layer** (keyboard
@@ -44,6 +46,11 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   plus one `aux_rng`, all derived from a single base seed by hash-mixing, so a seed reproduces the
   music and every randomized action — including the `T` key (`randomize_root_and_mode`) — is
   deterministic and host-testable. No wall-clock, no I/O in the engine.
+- **Deterministic composed piece.** [`PieceArrangement`](../src/core/piece.rs) is pure Rust. It maps
+  `(seed, duration, time)` to a [`PieceMoment`](../src/core/piece.rs): five-section macro form, BPM,
+  just-tuned root/scale, detune, voice positions, trigger probabilities, scripted swirl/ripples, and
+  continuous sculpture audio targets. The live frame loop and the offline audio renderer consume the
+  same moments.
 - **One grid step at a time.** [`MusicEngine::step`](../src/core/music.rs) advances exactly one
   eighth-note grid step, pushing any triggered notes. The audio scheduler drives it directly on the
   audio clock; `tick(dt)` wraps it in a wall-clock accumulator for the host tests. No wall-clock or
@@ -95,7 +102,9 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 ### WASM runtime & shared state
 
 - **`wasm-bindgen` facade.** [`wasm_app::start`](../src/wasm_app.rs) is the only `#[wasm_bindgen(start)]`
-  surface; it builds the graph and hands off to the frame loop. JS holds no application state.
+  surface; it builds the graph and hands off to the frame loop. Additional `wasm-bindgen` exports
+  (`start_arrangement`, `generate_piece`, `fps`, `is_ready`) form the headless production control
+  surface used by `scripts/produce.mjs`; JS still holds no application state.
 - **Aggregate / parameter-object structs.** Per-frame state and resources are bundled into one
   [`FrameContext`](../src/frame.rs); likewise [`FxBuses` / `VoiceRouting`](../src/audio.rs) and
   [`InputWiring`](../src/events/pointer.rs). One struct in, one `frame()` method out.
@@ -112,8 +121,15 @@ code, and new code should fit one of them rather than inventing a parallel mecha
 
 See the [audio graph diagram](diagrams/audio-graph.png) for the full signal flow. Each note runs
 `OscillatorNode` → envelope `GainNode` → the voice's `GainNode` → `PannerNode` (HRTF) into a master bus
-with convolution reverb, a feedback delay, and arctan saturation; the `AudioListener` tracks the camera,
-and each voice's reverb/delay sends scale with its distance from it.
+with convolution reverb, a feedback delay, saturation, and compression; the `AudioListener` tracks the
+camera, and each voice's reverb/delay sends scale with its distance from it. Around those event voices,
+a persistent sculpture layer adds a sustained three-oscillator pad, centred sub, brown-weighted
+low-passed noise bed, low consonant starfield harmonics, and a dark octave-up shimmer send into the
+reverb. The tonal voice/pad/star/shimmer paths are low-passed and broadly mid-scooped before they reach
+the shared space, while the noise bed stays mostly unvoiced. `SculptureAudio` targets glide that bed in
+live mode and during composed-piece capture, including small audio-rate detune LFOs on the pad
+oscillators plus seed-shaped saturation drive/wetness so the long-form render has analog-style movement
+without leaving the browser-native Web Audio graph.
 
 - **Construction via factories returning bundle structs.** [`build_fx_buses`](../src/audio.rs) →
   `FxBuses`, [`wire_voices`](../src/audio.rs) → `VoiceRouting`, and [`create_analyser`](../src/audio.rs)
@@ -128,6 +144,11 @@ and each voice's reverb/delay sends scale with its distance from it.
   disconnecting any note whose stop time has passed and capping concurrency at `MAX_POLYPHONY`. Both the
   scheduler (rhythmic notes) and the frame (click-to-play) spawn through it, so node lifetime is bounded
   and explicit rather than left to the GC.
+- **Shared live/offline graph.** The same bus builder runs on `AudioContext` for live playback and
+  `OfflineAudioContext` for `generate_piece`. Offline rendering replays the arrangement timeline,
+  schedules the same `MusicEngine` notes, then passes the stereo buffer through the pure Rust mastering
+  module ([`mastering.rs`](../src/mastering.rs)) for LUFS normalization, mono low bass, true-peak
+  limiting, and 24-bit WAV encoding.
 
 References: [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API),
 [OscillatorNode](https://developer.mozilla.org/en-US/docs/Web/API/OscillatorNode),
@@ -191,9 +212,11 @@ Patterns worth extending (see [`TODO.md`](TODO.md) for the full backlog):
 | Module | Path | Role | Host-testable |
 | --- | --- | --- | --- |
 | **core** | [`src/core/`](../src/core/) | Generative engine, scales, seeded scheduling, and domain units (`units.rs`). The heart. | ✅ |
+| **piece** | [`src/core/piece.rs`](../src/core/piece.rs) | Drift Lattice arrangement, scripted macro controls, and continuous audio targets. | ✅ |
 | **input** | [`src/input.rs`](../src/input.rs) | Pure picking math (`ray_sphere`, nearest-by-UV) + pointer state. | ✅ |
 | **events** | [`src/events/`](../src/events/) | `keymap` + `command` (pure, tested) and `keyboard`/`pointer` (thin wasm handlers that enqueue commands). | partial |
 | **audio** | [`src/audio.rs`](../src/audio.rs) | Web Audio graph construction, per-voice routing, note spawning + pool. | wasm-only |
+| **mastering** | [`src/mastering.rs`](../src/mastering.rs) | Offline mastering, loudness/peak analysis, and 24-bit WAV encoding. | ✅ |
 | **scheduler** | [`src/scheduler.rs`](../src/scheduler.rs) | Lookahead audio-clock scheduler: drives `engine.step`, schedules notes, emits timed pulses. | wasm-only |
 | **render** | [`src/render.rs`](../src/render.rs), [`src/render/`](../src/render/) | WebGPU pipelines: waves, bloom, post, targets. | wasm-only |
 | **frame** | [`src/frame.rs`](../src/frame.rs) | RAF loop: command application, timed pulses, swirl/FX, spatial audio, render. | wasm-only |

@@ -14,6 +14,7 @@ yarn-error.log
 
 # Build outputs
 /dist
+/renders
 
 # OS
 .DS_Store

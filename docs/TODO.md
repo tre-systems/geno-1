@@ -20,13 +20,23 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
   cutoff automation.
 - Generation: configurable scheduling grid (16th notes, triplets, dotted rhythms); pattern memory so
   voices vary previous sequences; gradual key modulation between related keys.
-- Just Intonation pentatonic to complete the tuning set.
+- Expose the composed-piece just Dorian / just pentatonic scales in the live tuning selector if they
+  become useful performance controls.
 - AudioWorklet path for sample-accurate synthesis.
 - Continuous background-tab audio: drive the scheduler from a Web Worker timer. `setInterval` throttles
   to ~1 Hz when the tab is hidden, so the lookahead scheduler currently goes choppy (not silent) in the
   background; a worker timer keeps it smooth.
 - Lower click-to-play latency: schedule click notes immediately on the audio clock instead of via the
   one-frame input command queue.
+
+## Production workflow
+
+- Add a Multivibrator ingestion note/template for `npm run produce` outputs (`instrument.json` seed,
+  duration, title, render settings) so finished Geno renders flow directly into the review queue.
+- Add stem export or at least separate dry/bed/reverb WAVs for Logic finishing once the first proof
+  render has passed listening review.
+- Add a long-set scheduler that renders multiple compatible Geno pieces and records intended overlap /
+  transition notes for a future hour-long performance.
 
 ## Architecture & types
 
