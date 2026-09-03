@@ -363,18 +363,18 @@ fn engine_step_sequence_is_a_stable_snapshot() {
         head,
         vec![
             (0, 196),
-            (1, 440),
-            (2, 587),
-            (2, 659),
-            (1, 440),
+            (1, 523),
+            (2, 523),
+            (2, 784),
+            (1, 523),
             (2, 1047),
-            (1, 440),
-            (2, 659),
+            (1, 523),
+            (2, 784),
         ],
         "engine note generation changed; len={} seq={seq:?}",
         seq.len()
     );
-    assert_eq!(seq.len(), 86, "engine event count changed: {}", seq.len());
+    assert_eq!(seq.len(), 80, "engine event count changed: {}", seq.len());
 }
 
 #[test]

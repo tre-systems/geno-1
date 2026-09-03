@@ -1,8 +1,11 @@
 use crate::core::{
-    Bpm, Cents, EngineParams, MidiNote, MusicEngine, VoiceConfig, Waveform, C_MAJOR_PENTATONIC,
+    default_voice_configs, Bpm, Cents, EngineParams, MidiNote, MusicEngine, PieceArrangement,
+    TET31_PENTATONIC,
 };
+use crate::mastering;
 use crate::{audio, constants, dom, events, frame, input, overlay, render, scheduler};
 use glam::Vec3;
+use js_sys::{Object, Reflect, Uint8Array};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -12,6 +15,22 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 use web_sys as web;
 use web_time::Instant;
+
+const EXPORT_SAMPLE_RATE: u32 = 48_000;
+const MAX_RECORD_SEC: f64 = 1_200.0;
+
+#[derive(Clone)]
+struct RuntimeHandles {
+    engine: Rc<RefCell<MusicEngine>>,
+    paused: Rc<RefCell<bool>>,
+    composition: Rc<RefCell<Option<PieceArrangement>>>,
+    composition_time: Rc<RefCell<f64>>,
+    fps_ema: Rc<RefCell<f32>>,
+}
+
+thread_local! {
+    static RUNTIME: RefCell<Option<RuntimeHandles>> = const { RefCell::new(None) };
+}
 
 fn show_audio_error(document: &web::Document, reason: &str) {
     if let Some(el) = document.get_element_by_id("audio-error") {
@@ -50,35 +69,13 @@ async fn build_audio_and_engine() -> anyhow::Result<InitParts> {
     let listener = audio_ctx.listener();
     listener.set_position(0.0, 0.0, 1.5);
 
-    let voice_configs = vec![
-        VoiceConfig {
-            waveform: Waveform::Sine,
-            base_position: Vec3::new(-1.0, 0.0, 0.0),
-            trigger_probability: 0.4,
-            octave_offset: -1,
-            base_duration: 0.4,
-        },
-        VoiceConfig {
-            waveform: Waveform::Saw,
-            base_position: Vec3::new(1.0, 0.0, 0.0),
-            trigger_probability: 0.6,
-            octave_offset: 0,
-            base_duration: 0.25,
-        },
-        VoiceConfig {
-            waveform: Waveform::Triangle,
-            base_position: Vec3::new(0.0, 0.0, -1.0),
-            trigger_probability: 0.3,
-            octave_offset: 1,
-            base_duration: 0.6,
-        },
-    ];
+    let voice_configs = default_voice_configs();
     let engine = Rc::new(RefCell::new(MusicEngine::new(
         voice_configs,
         EngineParams {
-            bpm: Bpm(110.0),
-            scale: C_MAJOR_PENTATONIC,
-            root: MidiNote(60.0),
+            bpm: Bpm(86.0),
+            scale: TET31_PENTATONIC,
+            root: MidiNote(50.0),
             detune: Cents(0.0),
         },
         42,
@@ -192,6 +189,7 @@ async fn init() -> anyhow::Result<()> {
                 let delay_in = fx.delay_in.clone();
                 let delay_feedback = fx.delay_feedback.clone();
                 let delay_wet = fx.delay_wet.clone();
+                let sculpture = fx.sculpture.clone();
 
                 // Per-voice master gains -> master bus, plus effect sends
                 let initial_positions: Vec<Vec3> =
@@ -221,11 +219,18 @@ async fn init() -> anyhow::Result<()> {
                 // Visual pulses per voice and optional analyser for ambient effects
                 let pulses = Rc::new(RefCell::new(vec![0.0_f32; engine.borrow().voices.len()]));
                 let (analyser, analyser_buf) = audio::create_analyser(&audio_ctx);
+                if let Some(a) = &analyser {
+                    _ = master_gain.connect_with_audio_node(a);
+                }
 
                 // Shared note pool and the timed visual pulses the scheduler produces.
                 let active_notes: Rc<RefCell<Vec<audio::ActiveNote>>> =
                     Rc::new(RefCell::new(Vec::new()));
                 let pending_pulses: scheduler::PulseQueue = Rc::new(RefCell::new(VecDeque::new()));
+                let composition: Rc<RefCell<Option<PieceArrangement>>> =
+                    Rc::new(RefCell::new(None));
+                let composition_time = Rc::new(RefCell::new(0.0_f64));
+                let fps_ema = Rc::new(RefCell::new(0.0_f32));
 
                 // Audio scheduler: generates and schedules notes ahead on the audio clock,
                 // off the render frame (keeps running, coarsely, in background tabs).
@@ -262,6 +267,16 @@ async fn init() -> anyhow::Result<()> {
                     queue: input_queue.clone(),
                 });
 
+                RUNTIME.with(|runtime| {
+                    *runtime.borrow_mut() = Some(RuntimeHandles {
+                        engine: engine.clone(),
+                        paused: paused.clone(),
+                        composition: composition.clone(),
+                        composition_time: composition_time.clone(),
+                        fps_ema: fps_ema.clone(),
+                    });
+                });
+
                 // Scheduler + renderer loop driven by requestAnimationFrame
                 let frame_ctx = Rc::new(RefCell::new(frame::FrameContext {
                     engine: engine.clone(),
@@ -283,6 +298,7 @@ async fn init() -> anyhow::Result<()> {
                     sat_pre: sat_pre.clone(),
                     sat_wet: sat_wet.clone(),
                     sat_dry: sat_dry.clone(),
+                    sculpture: sculpture.clone(),
                     analyser: analyser.clone(),
                     analyser_buf: analyser_buf.clone(),
                     gpu,
@@ -298,6 +314,11 @@ async fn init() -> anyhow::Result<()> {
                     config: constants::Config::default(),
                     active_notes: active_notes.clone(),
                     pending_pulses: pending_pulses.clone(),
+                    composition: composition.clone(),
+                    composition_time: composition_time.clone(),
+                    composition_moment: None,
+                    composition_ripple_index: 0,
+                    fps_ema: fps_ema.clone(),
                 }));
                 // Start RAF loop
                 frame::start_loop(frame_ctx);
@@ -306,4 +327,119 @@ async fn init() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[wasm_bindgen]
+pub fn is_ready() -> bool {
+    RUNTIME.with(|runtime| runtime.borrow().is_some())
+}
+
+#[wasm_bindgen]
+pub fn start_arrangement(duration_secs: f32, seed: u32) {
+    let duration = (duration_secs as f64).clamp(1.0, MAX_RECORD_SEC);
+    RUNTIME.with(|runtime| {
+        if let Some(handles) = runtime.borrow().as_ref() {
+            let arrangement = PieceArrangement::new(duration, seed);
+            *handles.composition.borrow_mut() = Some(arrangement);
+            *handles.composition_time.borrow_mut() = 0.0;
+            *handles.paused.borrow_mut() = false;
+            let moment = arrangement.moment(0.0);
+            let mut engine = handles.engine.borrow_mut();
+            engine.reseed_all_from(seed as u64);
+            moment.apply_to_engine(&mut engine);
+        }
+    });
+}
+
+#[wasm_bindgen]
+pub fn stop_arrangement() {
+    RUNTIME.with(|runtime| {
+        if let Some(handles) = runtime.borrow().as_ref() {
+            *handles.composition.borrow_mut() = None;
+        }
+    });
+}
+
+#[wasm_bindgen]
+pub fn arrangement_active() -> bool {
+    RUNTIME.with(|runtime| {
+        runtime
+            .borrow()
+            .as_ref()
+            .is_some_and(|handles| handles.composition.borrow().is_some())
+    })
+}
+
+#[wasm_bindgen]
+pub fn fps() -> f32 {
+    RUNTIME.with(|runtime| {
+        runtime
+            .borrow()
+            .as_ref()
+            .map(|handles| *handles.fps_ema.borrow())
+            .unwrap_or(0.0)
+    })
+}
+
+#[wasm_bindgen]
+pub async fn generate_piece(
+    duration_secs: f32,
+    seed: u32,
+    target_lufs: f32,
+) -> Result<JsValue, JsValue> {
+    let duration = (duration_secs as f64).clamp(1.0, MAX_RECORD_SEC);
+    let arrangement = PieceArrangement::new(duration, seed);
+    let (left, right) =
+        audio::render_piece_offline(&arrangement, EXPORT_SAMPLE_RATE, 0.30, seed as u64)
+            .await
+            .ok_or_else(|| JsValue::from_str("Offline audio render failed in this browser."))?;
+    let settings = mastering::MasterSettings {
+        sample_rate: EXPORT_SAMPLE_RATE,
+        target_lufs,
+        true_peak_ceiling_db: -1.0,
+    };
+    let (ml, mr, report) = mastering::master(&left, &right, &settings);
+    let wav = mastering::encode_wav_24(&ml, &mr, EXPORT_SAMPLE_RATE);
+    build_export_result(&wav, &report, EXPORT_SAMPLE_RATE)
+}
+
+fn build_export_result(
+    wav: &[u8],
+    report: &mastering::MasterReport,
+    sample_rate: u32,
+) -> Result<JsValue, JsValue> {
+    let obj = Object::new();
+    let wav_array = Uint8Array::new_with_length(wav.len() as u32);
+    wav_array.copy_from(wav);
+    Reflect::set(&obj, &"wav".into(), &wav_array.into())?;
+    Reflect::set(
+        &obj,
+        &"report".into(),
+        &format_report(report, sample_rate).into(),
+    )?;
+    Reflect::set(&obj, &"lufs".into(), &report.lufs_out.into())?;
+    Reflect::set(&obj, &"truePeakDb".into(), &report.true_peak_db.into())?;
+    Reflect::set(&obj, &"durationSec".into(), &report.duration_secs.into())?;
+    Reflect::set(&obj, &"sampleRate".into(), &sample_rate.into())?;
+    Ok(obj.into())
+}
+
+fn format_report(r: &mastering::MasterReport, sr: u32) -> String {
+    format!(
+        "{:.0}s - {} kHz / 24-bit WAV\nLoudness: {:.1} -> {:.1} LUFS ({:+.1} dB)\nTrue peak: {:.1} dBTP - Sample peak: {:.1} dBFS\nStereo: {:.2} correlation - Tonal tilt: {:+.1} dB\n{}",
+        r.duration_secs,
+        sr / 1000,
+        r.lufs_in,
+        r.lufs_out,
+        r.gain_db,
+        r.true_peak_db,
+        r.sample_peak_db,
+        r.stereo_correlation,
+        r.spectral_tilt_db,
+        if r.limited {
+            "Peak limiter engaged to hold the -1 dBTP ceiling."
+        } else {
+            "Clean headroom - no limiting needed."
+        }
+    )
 }

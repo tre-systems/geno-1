@@ -28,36 +28,19 @@ pub const SWIRL_TARGET_WEIGHT_VELOCITY: f32 = 0.35;
 pub const SWIRL_TARGET_CLICK_BONUS: f32 = 0.5;
 pub const SWIRL_ENERGY_BLEND_ALPHA: f32 = 0.15; // new = (1-α)*old + α*target
 
-// Global FX mapping weights
-pub const FX_REVERB_BASE: f32 = 0.35;
-pub const FX_REVERB_SPAN: f32 = 0.65;
-
-pub const FX_DELAY_WET_BASE: f32 = 0.15;
-pub const FX_DELAY_WET_SWIRL: f32 = 0.55;
-pub const FX_DELAY_WET_ECHO: f32 = 0.30;
-
-pub const FX_DELAY_FB_BASE: f32 = 0.35;
-pub const FX_DELAY_FB_SWIRL: f32 = 0.35;
-pub const FX_DELAY_FB_ECHO: f32 = 0.25;
-
-pub const FX_SAT_DRIVE_MIN: f32 = 0.2;
-pub const FX_SAT_DRIVE_MAX: f32 = 3.0;
-pub const FX_SAT_WET_BASE: f32 = 0.15;
-pub const FX_SAT_WET_SPAN: f32 = 0.85;
-
 // Per-voice spatial sends mapping
 pub const DIST_NORM_DIVISOR: f32 = 2.5;
-pub const D_SEND_BASE: f32 = 0.15;
-pub const D_SEND_SPAN: f32 = 0.85;
-pub const R_SEND_BASE: f32 = 0.25;
-pub const R_SEND_SPAN: f32 = 0.75;
-pub const SEND_BOOST_COEFF: f32 = 0.8;
-pub const D_SEND_CLAMP_MAX: f32 = 1.2;
-pub const R_SEND_CLAMP_MAX: f32 = 1.5;
+pub const D_SEND_BASE: f32 = 0.08;
+pub const D_SEND_SPAN: f32 = 0.38;
+pub const R_SEND_BASE: f32 = 0.18;
+pub const R_SEND_SPAN: f32 = 0.42;
+pub const SEND_BOOST_COEFF: f32 = 0.45;
+pub const D_SEND_CLAMP_MAX: f32 = 0.70;
+pub const R_SEND_CLAMP_MAX: f32 = 0.90;
 
 // Voice level mapping
-pub const LEVEL_BASE: f32 = 0.55;
-pub const LEVEL_SPAN: f32 = 0.45;
+pub const LEVEL_BASE: f32 = 0.32;
+pub const LEVEL_SPAN: f32 = 0.24;
 
 // Maximum number of concurrent in-flight notes (oscillator+gain pairs).
 pub const MAX_POLYPHONY: usize = 24;
@@ -80,8 +63,8 @@ pub const BLOOM_THRESHOLD: f32 = 0.54;
 // Pitch spans CLICK_NOTE_MIDI_SPAN semitones across the canvas width from a base.
 pub const CLICK_NOTE_BASE_MIDI: f32 = 60.0;
 pub const CLICK_NOTE_MIDI_SPAN: f32 = 24.0;
-pub const CLICK_VEL_BASE: f32 = 0.35;
-pub const CLICK_VEL_SPAN: f32 = 0.65;
+pub const CLICK_VEL_BASE: f32 = 0.16;
+pub const CLICK_VEL_SPAN: f32 = 0.32;
 pub const CLICK_DUR_BASE_SEC: f64 = 0.35;
 pub const CLICK_DUR_SPAN_SEC: f64 = 0.25;
 
@@ -95,9 +78,9 @@ pub const ANALYSER_DB_FLOOR: f32 = 100.0; // dB floor for normalizing analyser o
 pub const AMBIENT_PULSE_GAIN: f32 = 0.05; // how much ambient energy lifts voice pulses
 pub const AMBIENT_CLEAR_SCALE: f32 = 0.9; // ambient energy -> background clear amount
 
-/// Runtime-tunable "feel" parameters for the interactive swirl and the global FX
-/// it drives. Seeded from the constants above via `Default`; held by the frame
-/// loop so presets or live tuning can vary it without a rebuild.
+/// Runtime-tunable "feel" parameters for the interactive swirl. Seeded from the
+/// constants above via `Default`; held by the frame loop so presets or live tuning
+/// can vary it without a rebuild.
 #[derive(Clone, Debug)]
 pub struct Config {
     // Inertial swirl physics.
@@ -110,19 +93,6 @@ pub struct Config {
     pub swirl_target_weight_velocity: f32,
     pub swirl_target_click_bonus: f32,
     pub swirl_energy_blend_alpha: f32,
-    // Global FX modulation driven by swirl energy.
-    pub fx_reverb_base: f32,
-    pub fx_reverb_span: f32,
-    pub fx_delay_wet_base: f32,
-    pub fx_delay_wet_swirl: f32,
-    pub fx_delay_wet_echo: f32,
-    pub fx_delay_fb_base: f32,
-    pub fx_delay_fb_swirl: f32,
-    pub fx_delay_fb_echo: f32,
-    pub fx_sat_drive_min: f32,
-    pub fx_sat_drive_max: f32,
-    pub fx_sat_wet_base: f32,
-    pub fx_sat_wet_span: f32,
 }
 
 impl Default for Config {
@@ -136,18 +106,6 @@ impl Default for Config {
             swirl_target_weight_velocity: SWIRL_TARGET_WEIGHT_VELOCITY,
             swirl_target_click_bonus: SWIRL_TARGET_CLICK_BONUS,
             swirl_energy_blend_alpha: SWIRL_ENERGY_BLEND_ALPHA,
-            fx_reverb_base: FX_REVERB_BASE,
-            fx_reverb_span: FX_REVERB_SPAN,
-            fx_delay_wet_base: FX_DELAY_WET_BASE,
-            fx_delay_wet_swirl: FX_DELAY_WET_SWIRL,
-            fx_delay_wet_echo: FX_DELAY_WET_ECHO,
-            fx_delay_fb_base: FX_DELAY_FB_BASE,
-            fx_delay_fb_swirl: FX_DELAY_FB_SWIRL,
-            fx_delay_fb_echo: FX_DELAY_FB_ECHO,
-            fx_sat_drive_min: FX_SAT_DRIVE_MIN,
-            fx_sat_drive_max: FX_SAT_DRIVE_MAX,
-            fx_sat_wet_base: FX_SAT_WET_BASE,
-            fx_sat_wet_span: FX_SAT_WET_SPAN,
         }
     }
 }

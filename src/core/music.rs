@@ -25,6 +25,34 @@ pub struct VoiceConfig {
     pub base_duration: f32,
 }
 
+/// Geno-1's three foundational voices. The positions are engine-space XZ
+/// coordinates; the WASM shell maps them to the visual field and HRTF panners.
+pub fn default_voice_configs() -> Vec<VoiceConfig> {
+    vec![
+        VoiceConfig {
+            waveform: Waveform::Sine,
+            base_position: Vec3::new(-1.0, 0.0, 0.0),
+            trigger_probability: 0.28,
+            octave_offset: -1,
+            base_duration: 0.85,
+        },
+        VoiceConfig {
+            waveform: Waveform::Triangle,
+            base_position: Vec3::new(1.0, 0.0, 0.0),
+            trigger_probability: 0.22,
+            octave_offset: 0,
+            base_duration: 0.48,
+        },
+        VoiceConfig {
+            waveform: Waveform::Triangle,
+            base_position: Vec3::new(0.0, 0.0, -1.0),
+            trigger_probability: 0.16,
+            octave_offset: 1,
+            base_duration: 1.25,
+        },
+    ]
+}
+
 /// A scheduled musical event produced by the engine for playback.
 #[derive(Clone, Debug)]
 pub struct NoteEvent {
@@ -72,6 +100,11 @@ impl Default for EngineParams {
 
 /// Default five-note scale centered around middle C.
 pub const C_MAJOR_PENTATONIC: &[f32] = &[0.0, 2.0, 4.0, 7.0, 9.0, 12.0];
+/// Slightly unfamiliar but consonant pentatonic: scale degrees are tuned near simple
+/// ratios (9/8, 5/4, 3/2, 5/3) expressed as semitone offsets.
+pub const DRIFT_JUST_PENTATONIC: &[f32] = &[0.0, 2.039, 3.863, 7.020, 8.844, 12.0];
+/// A darker companion for the composed piece, still favouring simple ratios.
+pub const DRIFT_DORIAN_JUST: &[f32] = &[0.0, 2.039, 3.156, 7.020, 8.844, 10.182, 12.0];
 
 /// Diatonic modes (relative semitone degrees)
 pub const IONIAN: &[f32] = &[0.0, 2.0, 4.0, 5.0, 7.0, 9.0, 11.0, 12.0]; // major
@@ -228,6 +261,22 @@ impl MusicEngine {
         }
     }
 
+    /// Reset every deterministic RNG from a single seed, preserving the current
+    /// voice/config vectors. Used by composed-piece video/audio export so the same
+    /// seed reproduces the event field across live capture and offline render.
+    pub fn reseed_all_from(&mut self, seed: u64) {
+        for (i, rng) in self.rngs.iter_mut().enumerate() {
+            let mix = seed ^ (i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+            *rng = StdRng::seed_from_u64(mix);
+        }
+        self.aux_rng = StdRng::seed_from_u64(seed ^ 0xA5A5_5A5A_DEAD_BEEF);
+        self.beat_accum = 0.0;
+        self.solo_index = None;
+        for v in &mut self.voices {
+            v.muted = false;
+        }
+    }
+
     /// Randomly choose a new root note and diatonic mode using the engine's
     /// seeded auxiliary RNG (deterministic for a given seed, host-testable).
     pub fn randomize_root_and_mode(&mut self) {
@@ -284,12 +333,12 @@ impl MusicEngine {
             let prob = self.configs[i].trigger_probability;
             let rng = &mut self.rngs[i];
             if rng.gen::<f32>() < prob {
-                let degree = *self.params.scale.choose(rng).unwrap_or(&0.0);
+                let degree = choose_harmonic_degree(self.params.scale, rng);
                 let octave = self.configs[i].octave_offset;
                 let note = self.params.root.shifted(degree + (octave * 12) as f32);
                 let freq = note.to_hz_detuned(self.params.detune);
-                let vel = 0.4 + rng.gen::<f32>() * 0.6;
-                let dur = self.configs[i].base_duration + rng.gen::<f32>() * 0.2;
+                let vel = 0.10 + rng.gen::<f32>() * 0.20;
+                let dur = self.configs[i].base_duration + rng.gen::<f32>() * 0.42;
                 out_events.push(NoteEvent {
                     voice: VoiceIndex(i),
                     freq,
@@ -299,6 +348,38 @@ impl MusicEngine {
             }
         }
     }
+}
+
+fn choose_harmonic_degree<R: Rng + ?Sized>(scale: &'static [f32], rng: &mut R) -> f32 {
+    if scale.is_empty() {
+        return 0.0;
+    }
+    let r = rng.gen::<f32>();
+    if r < 0.34 {
+        0.0
+    } else if r < 0.58 {
+        nearest_degree(scale, 7.0)
+    } else if r < 0.74 {
+        nearest_degree(scale, 12.0)
+    } else if r < 0.90 {
+        let centre = scale.len().saturating_sub(1) / 2;
+        scale[centre]
+    } else {
+        *scale.choose(rng).unwrap_or(&0.0)
+    }
+}
+
+fn nearest_degree(scale: &[f32], target: f32) -> f32 {
+    scale
+        .iter()
+        .copied()
+        .min_by(|a, b| {
+            (a - target)
+                .abs()
+                .partial_cmp(&(b - target).abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(0.0)
 }
 
 /// Convert a MIDI note number to Hertz (A4=440 Hz).

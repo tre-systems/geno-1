@@ -1,6 +1,7 @@
 pub mod core;
 pub mod events;
 pub mod input;
+pub mod mastering;
 
 #[cfg(target_arch = "wasm32")]
 mod audio;

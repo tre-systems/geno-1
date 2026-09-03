@@ -1,6 +1,9 @@
 use crate::audio;
 use crate::constants::*;
-use crate::core::{Bpm, MusicEngine, VoiceIndex, C_MAJOR_PENTATONIC};
+use crate::core::{
+    live_sculpture_audio, Bpm, MusicEngine, PieceArrangement, PieceMoment, VoiceIndex,
+    C_MAJOR_PENTATONIC,
+};
 use crate::events::InputCommand;
 use crate::input;
 use crate::overlay;
@@ -38,6 +41,7 @@ pub struct FrameContext<'a> {
     pub sat_pre: web::GainNode,
     pub sat_wet: web::GainNode,
     pub sat_dry: web::GainNode,
+    pub sculpture: audio::SculptureLayer,
 
     pub analyser: Option<web::AnalyserNode>,
     pub analyser_buf: Rc<RefCell<Vec<f32>>>,
@@ -56,6 +60,11 @@ pub struct FrameContext<'a> {
     pub config: Config,
     pub active_notes: Rc<RefCell<Vec<audio::ActiveNote>>>,
     pub pending_pulses: PulseQueue,
+    pub composition: Rc<RefCell<Option<PieceArrangement>>>,
+    pub composition_time: Rc<RefCell<f64>>,
+    pub composition_moment: Option<PieceMoment>,
+    pub composition_ripple_index: u32,
+    pub fps_ema: Rc<RefCell<f32>>,
 }
 
 impl<'a> FrameContext<'a> {
@@ -68,12 +77,52 @@ impl<'a> FrameContext<'a> {
 
         // Ordered per-frame systems. Note generation + audio scheduling run off-frame
         // in the audio scheduler; the frame fires timed pulses and renders.
+        self.update_fps(dt_sec);
+        self.advance_composition(dt_sec);
         self.apply_input_commands();
         self.update_pulses(dt_sec);
         self.update_swirl_and_fx(dt_sec);
         self.update_spatial_audio();
+        self.update_sculpture_audio();
         self.update_ambient();
         self.render_scene(dt_sec);
+    }
+
+    fn update_fps(&mut self, dt_sec: f32) {
+        if dt_sec <= 0.0 {
+            return;
+        }
+        let fps = 1.0 / dt_sec;
+        let mut ema = self.fps_ema.borrow_mut();
+        *ema = if *ema <= 0.0 {
+            fps
+        } else {
+            *ema * 0.92 + fps * 0.08
+        };
+    }
+
+    fn advance_composition(&mut self, dt_sec: f32) {
+        self.composition_moment = None;
+        let arr = *self.composition.borrow();
+        let Some(arrangement) = arr else {
+            return;
+        };
+
+        let mut t = self.composition_time.borrow_mut();
+        let moment = arrangement.moment(*t);
+        moment.apply_to_engine(&mut self.engine.borrow_mut());
+        *self.paused.borrow_mut() = false;
+        if *t <= f64::EPSILON {
+            self.composition_ripple_index = moment.ripple_index;
+        } else if moment.ripple_index != self.composition_ripple_index {
+            self.pending_ripple = Some(moment.ripple_uv);
+            self.composition_ripple_index = moment.ripple_index;
+        }
+        self.composition_moment = Some(moment);
+        *t += dt_sec as f64;
+        if *t >= arrangement.duration + crate::core::EXPORT_TAIL_SEC {
+            *self.composition.borrow_mut() = None;
+        }
     }
 
     /// Fire scheduled pulses whose audio time has arrived, then smooth the visual pulses.
@@ -97,24 +146,20 @@ impl<'a> FrameContext<'a> {
         smooth_pulses(&mut pulses_ref, &mut self.pulse_energy, dt_sec);
     }
 
-    /// Update the inertial swirl from pointer input and modulate global FX from it.
+    /// Update the inertial swirl from pointer input or the composed-piece script.
     fn update_swirl_and_fx(&mut self, dt_sec: f32) {
-        let (uv, mouse_down) = {
+        let scripted = self.composition_moment;
+        let (uv, mouse_down) = if let Some(moment) = scripted {
+            (moment.swirl_uv, true)
+        } else {
             let ms = self.mouse.borrow();
             (input::mouse_uv(&self.canvas, &ms), ms.down)
         };
-        self.update_swirl(uv, dt_sec, mouse_down);
-        apply_global_fx_swirl(
-            &self.reverb_wet,
-            &self.delay_wet,
-            &self.delay_feedback,
-            &self.sat_pre,
-            &self.sat_wet,
-            &self.sat_dry,
-            self.swirl_energy,
-            uv,
-            &self.config,
-        );
+        if let Some(moment) = scripted {
+            self.update_scripted_swirl(moment, dt_sec);
+        } else {
+            self.update_swirl(uv, dt_sec, mouse_down);
+        }
     }
 
     /// Position each voice's panner and set its distance-based reverb/delay sends.
@@ -140,6 +185,34 @@ impl<'a> FrameContext<'a> {
             let lvl = LEVEL_BASE + LEVEL_SPAN * (1.0 - (dist / DIST_NORM_DIVISOR).clamp(0.0, 1.0));
             self.voice_gains[i].gain().set_value(lvl);
         }
+    }
+
+    fn update_sculpture_audio(&mut self) {
+        let now = self.audio_ctx.current_time();
+        let target = if let Some(moment) = self.composition_moment {
+            moment.audio
+        } else {
+            let eng = self.engine.borrow();
+            live_sculpture_audio(
+                eng.params.root,
+                eng.params.detune,
+                self.swirl_energy,
+                self.swirl_pos,
+                now as f32,
+            )
+        };
+        let on = !*self.paused.borrow();
+        audio::apply_sculpture_layer(&self.sculpture, &target, on, now);
+        audio::apply_sculpture_bus(
+            &self.reverb_wet,
+            &self.delay_wet,
+            &self.delay_feedback,
+            &self.sat_pre,
+            &self.sat_wet,
+            &self.sat_dry,
+            &target,
+            now,
+        );
     }
 
     /// Feed analyser energy into the visual pulses and the background clear amount.
@@ -239,6 +312,20 @@ impl<'a> FrameContext<'a> {
         self.swirl_energy = (1.0 - self.config.swirl_energy_blend_alpha) * self.swirl_energy
             + self.config.swirl_energy_blend_alpha * target;
         self.prev_uv = uv;
+    }
+
+    fn update_scripted_swirl(&mut self, moment: PieceMoment, dt_sec: f32) {
+        step_inertial_swirl(
+            &mut self.swirl_initialized,
+            &mut self.swirl_pos,
+            &mut self.swirl_vel,
+            moment.swirl_uv,
+            dt_sec,
+            &self.config,
+        );
+        let alpha = 1.0 - (-dt_sec / 0.7).exp();
+        self.swirl_energy += (moment.swirl_energy - self.swirl_energy) * alpha;
+        self.prev_uv = moment.swirl_uv;
     }
 
     /// Drain the shared input queue and apply each discrete command. This is the
@@ -483,41 +570,6 @@ fn step_inertial_swirl(
     }
     swirl_pos[0] = nx.clamp(0.0, 1.0);
     swirl_pos[1] = ny.clamp(0.0, 1.0);
-}
-
-#[allow(clippy::too_many_arguments)]
-fn apply_global_fx_swirl(
-    reverb_wet: &web::GainNode,
-    delay_wet: &web::GainNode,
-    delay_feedback: &web::GainNode,
-    sat_pre: &web::GainNode,
-    sat_wet: &web::GainNode,
-    sat_dry: &web::GainNode,
-    swirl_energy: f32,
-    uv: [f32; 2],
-    cfg: &Config,
-) {
-    reverb_wet
-        .gain()
-        .set_value(cfg.fx_reverb_base + cfg.fx_reverb_span * swirl_energy);
-    let echo = (uv[0] - uv[1]).abs();
-    let delay_wet_val = (cfg.fx_delay_wet_base
-        + cfg.fx_delay_wet_swirl * swirl_energy
-        + cfg.fx_delay_wet_echo * echo)
-        .clamp(0.0, 1.0);
-    let delay_fb_val =
-        (cfg.fx_delay_fb_base + cfg.fx_delay_fb_swirl * swirl_energy + cfg.fx_delay_fb_echo * echo)
-            .clamp(0.0, 0.95);
-    delay_wet.gain().set_value(delay_wet_val);
-    delay_feedback.gain().set_value(delay_fb_val);
-    let fizz = ((uv[0] + uv[1]) * 0.5).clamp(0.0, 1.0);
-    let drive = (cfg.fx_sat_drive_min
-        + (cfg.fx_sat_drive_max - cfg.fx_sat_drive_min) * ((fizz - 0.25).clamp(0.0, 1.0)))
-    .clamp(cfg.fx_sat_drive_min, cfg.fx_sat_drive_max);
-    sat_pre.gain().set_value(drive);
-    let wet = (cfg.fx_sat_wet_base + cfg.fx_sat_wet_span * fizz).clamp(0.0, 1.0);
-    sat_wet.gain().set_value(wet);
-    sat_dry.gain().set_value(1.0 - wet);
 }
 
 fn update_listener_to_camera(listener: &web::AudioListener, cam_eye: Vec3, cam_target: Vec3) {

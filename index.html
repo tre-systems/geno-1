@@ -578,7 +578,40 @@
           "[index] wasm entry loaded url:",
           new URL(`./pkg/app_web.js?v=${v}`, window.location.href).toString(),
         );
-        return m.default();
+        return m.default().then(() => {
+          const whenReady = async (timeoutMs = 30000) => {
+            const started = performance.now();
+            while (!m.is_ready() && performance.now() - started < timeoutMs) {
+              await new Promise((r) => requestAnimationFrame(r));
+            }
+            return m.is_ready();
+          };
+          window.geno = {
+            isReady: () => m.is_ready(),
+            whenReady,
+            startArrangement: (duration, seed) =>
+              m.start_arrangement(duration, seed),
+            stopArrangement: () => m.stop_arrangement(),
+            arrangementActive: () => m.arrangement_active(),
+            fps: () => m.fps(),
+            renderPieceTo: async (postUrl, duration, seed, lufs) => {
+              const result = await m.generate_piece(duration, seed, lufs);
+              await fetch(postUrl, {
+                method: "POST",
+                body: new Blob([result.wav]),
+              });
+              return result.report;
+            },
+          };
+          const params = new URLSearchParams(location.search);
+          if (params.has("compose")) {
+            const seed = Number.parseInt(params.get("compose"), 10) || 1;
+            const duration = Number.parseFloat(params.get("dur")) || 600;
+            whenReady().then((ready) => {
+              if (ready) window.geno.startArrangement(duration, seed);
+            });
+          }
+        });
       });
     </script>
   </body>
