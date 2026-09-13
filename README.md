@@ -129,12 +129,15 @@ Deployed to Cloudflare Workers as static assets.
 
 - Build: `npm run build` — populates `dist/` with `index.html`, `favicon.svg`, and
   `pkg/{app_web.js, app_web_bg.wasm, env.js}`
+- Discovery: the HTML provides canonical and social metadata; `robots.txt` and `sitemap.xml`
+  are static build assets. `social-preview.png` reuses `docs/screenshot.png`. Browser tests
+  serve `dist/` and verify these assets and their content types.
 - Deploy: `npx --yes wrangler deploy` (config in `wrangler.toml`)
 - `worker.js` sets cache-control headers; `pkg/env.js` carries a git-SHA version that `index.html`
   appends to the wasm entry (`app_web.js?v=<version>`) for deterministic cache-busting.
 
 CI (`.github/workflows/ci.yml`) runs `npm run check` on every push/PR and deploys on push to `main`
-when `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are configured.
+when `CLOUDFLARE_DEPLOY_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are configured.
 
 ## Project Structure
 

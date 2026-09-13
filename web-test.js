@@ -49,6 +49,35 @@ async function gotoWithRetry(
 
   await gotoWithRetry(page, TARGET_URL);
 
+  const discovery = await page.evaluate(async () => {
+    const canonical = document.querySelector('link[rel="canonical"]')?.href;
+    const description = document.querySelector('meta[name="description"]')?.content;
+    const image = document.querySelector('meta[property="og:image"]')?.content;
+    const robots = await fetch("/robots.txt");
+    const sitemap = await fetch("/sitemap.xml");
+    const preview = await fetch(new URL(image).pathname);
+    const xml = new DOMParser().parseFromString(await sitemap.text(), "application/xml");
+    return {
+      canonical, description, image,
+      robotsOk: robots.ok && /text\/plain/.test(robots.headers.get("content-type")),
+      robotsText: await robots.text(),
+      sitemapOk: sitemap.ok && /xml/.test(sitemap.headers.get("content-type")),
+      locations: [...xml.querySelectorAll("loc")].map((node) => node.textContent),
+      xmlError: !!xml.querySelector("parsererror"),
+      previewOk: preview.ok && preview.headers.get("content-type")?.includes("image/png"),
+    };
+  });
+  const canonical = "https://geno-1.tre.systems/";
+  if (
+    discovery.canonical !== canonical || !discovery.description ||
+    discovery.image !== `${canonical}social-preview.png` ||
+    !discovery.robotsOk || !discovery.robotsText.includes("Allow: /") ||
+    !discovery.robotsText.includes(`Sitemap: ${canonical}sitemap.xml`) ||
+    !discovery.sitemapOk || discovery.xmlError ||
+    JSON.stringify(discovery.locations) !== JSON.stringify([canonical]) ||
+    !discovery.previewOk
+  ) throw new Error("Discovery metadata or published assets failed validation");
+
   await page.waitForSelector("#app-canvas", { timeout: 10000 });
 
   const box = await page.$eval("#app-canvas", (el) => {

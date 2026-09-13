@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://geno-1.tre.systems/sitemap.xml
