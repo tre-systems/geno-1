@@ -36,8 +36,8 @@
   "devDependencies": {
     "wrangler": "^4.128.0",
     "http-server": "^14.1.1",
-    "puppeteer": "^25.9.0",
+    "puppeteer": "^25.11.0",
     "wasm-pack": "^0.15.0",
-    "npm-check-updates": "^18.0.2"
+    "npm-check-updates": "^18.3.1"
   }
 }
