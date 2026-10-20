@@ -39,5 +39,9 @@
     "puppeteer": "^25.11.0",
     "wasm-pack": "^0.15.0",
     "npm-check-updates": "^18.3.1"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "undici@^7": "7.29.1"
   }
 }
