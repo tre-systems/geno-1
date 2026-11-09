@@ -29,14 +29,17 @@ Forward-looking work, roughly in priority order. Current behaviour and architect
 - Lower click-to-play latency: schedule click notes immediately on the audio clock instead of via the
   one-frame input command queue.
 
-## Production workflow
+## Optional production workflow
 
-- Add a Multivibrator ingestion note/template for `npm run produce` outputs (`instrument.json` seed,
-  duration, title, render settings) so finished Geno renders flow directly into the review queue.
+These proposals need a selected piece or performance before implementation.
+
+- Prepare a manual handover manifest for an approved `npm run produce` output, recording its seed,
+  duration, title, render settings and exact WAV/MP4 files. Multivibrator's daily candidate programme
+  is retired; this proposal has no automatic review-queue dependency.
 - Add stem export or at least separate dry/bed/reverb WAVs for Logic finishing once the first proof
   render has passed listening review.
-- Add a long-set scheduler that renders multiple compatible Geno pieces and records intended overlap /
-  transition notes for a future hour-long performance.
+- Consider a long-set scheduler if an hour-long performance is commissioned, with compatible pieces
+  and explicit overlap / transition notes.
 
 ## Architecture & types
 
