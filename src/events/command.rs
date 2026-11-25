@@ -59,6 +59,10 @@ pub fn command_for_key(key: &str, shift: bool) -> Option<InputCommand> {
         "m" | "M" => InputCommand::ToggleMute,
         "," => InputCommand::DetuneDelta(Cents(if shift { -10.0 } else { -50.0 })),
         "." => InputCommand::DetuneDelta(Cents(if shift { 10.0 } else { 50.0 })),
+        // Shift turns `,` and `.` into `<` and `>` on most layouts, so those glyphs
+        // are the fine steps as well.
+        "<" => InputCommand::DetuneDelta(Cents(-10.0)),
+        ">" => InputCommand::DetuneDelta(Cents(10.0)),
         "/" => InputCommand::ResetDetune,
         "Enter" => InputCommand::ToggleFullscreen,
         "Escape" => InputCommand::ExitFullscreen,

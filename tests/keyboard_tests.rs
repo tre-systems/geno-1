@@ -60,6 +60,22 @@ fn command_for_key_maps_discrete_actions() {
 }
 
 #[test]
+fn shifted_comma_and_period_glyphs_are_fine_detune_steps() {
+    use app_web::core::Cents;
+    use app_web::events::command::{command_for_key, InputCommand};
+
+    // A real keyboard reports Shift+`,` and Shift+`.` as `<` and `>`.
+    assert_eq!(
+        command_for_key("<", true),
+        Some(InputCommand::DetuneDelta(Cents(-10.0)))
+    );
+    assert_eq!(
+        command_for_key(">", true),
+        Some(InputCommand::DetuneDelta(Cents(10.0)))
+    );
+}
+
+#[test]
 fn mode_scale_for_digit_valid_digits() {
     let cases = [
         ("1", core::IONIAN),

@@ -284,6 +284,83 @@ async function gotoWithRetry(
     }
   }
 
+  // Regression checks, each on a fresh page ---------------------------------
+  const fresh = async (setup = async () => {}) => {
+    const p = await browser.newPage();
+    const pageLogs = [];
+    const pageErrors = [];
+    p.on("console", (m) => pageLogs.push(m.text()));
+    p.on("pageerror", (e) => pageErrors.push(e.message));
+    await setup(p);
+    await gotoWithRetry(p, TARGET_URL);
+    await p.waitForSelector("#app-canvas", { timeout: 10000 });
+    await new Promise((r) => setTimeout(r, 400));
+    return { p, pageLogs, pageErrors };
+  };
+
+  // On a phone the help panel starts at its title, not partway down the key list.
+  {
+    const { p } = await fresh((p) =>
+      p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true })
+    );
+    const titleTop = await p.$eval(
+      "#start-title",
+      (el) => el.getBoundingClientRect().top
+    );
+    if (titleTop < 0)
+      throw new Error(`help panel title is off a phone screen (top=${titleTop})`);
+    await p.close();
+  }
+
+  // Without WebGPU the first screen says so.
+  {
+    const { p } = await fresh((p) =>
+      p.evaluateOnNewDocument(() => {
+        delete Navigator.prototype.gpu;
+      })
+    );
+    const notice = await p.$eval("#webgpu-notice", (el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        shown: getComputedStyle(el).display !== "none",
+        onScreen: r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight,
+      };
+    });
+    if (!notice.shown || !notice.onScreen)
+      throw new Error("no-WebGPU notice is not on the first screen");
+    await p.close();
+  }
+
+  // H as the first gesture starts playback; Shift+. is a fine detune step;
+  // Esc outside fullscreen raises nothing.
+  {
+    const { p, pageLogs, pageErrors } = await fresh();
+    if (pageLogs.some((l) => l.includes("[engine] voices="))) {
+      await p.keyboard.press("KeyH");
+      await new Promise((r) => setTimeout(r, 200));
+      if (!pageLogs.some((l) => l.includes("[keys] help closed, playback started")))
+        throw new Error("closing help with H did not start playback");
+
+      await p.keyboard.down("Shift");
+      await p.keyboard.press("Period");
+      await p.keyboard.up("Shift");
+      await new Promise((r) => setTimeout(r, 200));
+      const hint = await p.$eval("#hint-overlay", (el) => el.textContent);
+      if (!hint.includes("Detune: +10¢"))
+        throw new Error(`Shift+. did not detune by 10 cents (hint: "${hint}")`);
+
+      const errorsBefore = pageErrors.length;
+      await p.keyboard.press("Escape");
+      await new Promise((r) => setTimeout(r, 300));
+      if (pageErrors.length > errorsBefore)
+        throw new Error(`Esc outside fullscreen raised: ${pageErrors[errorsBefore]}`);
+      console.log("[regression] H start, fine detune and Esc checks passed");
+    } else {
+      console.log("[note] engine not started; skipping key regression checks");
+    }
+    await p.close();
+  }
+
   // Basic assertions
   const hasWebGPU = await page.evaluate(() => !!navigator.gpu);
   console.log("WEBGPU", hasWebGPU);

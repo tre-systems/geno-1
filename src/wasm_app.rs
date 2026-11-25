@@ -255,7 +255,7 @@ async fn init() -> anyhow::Result<()> {
                 let drag_state = Rc::new(RefCell::new(input::DragState::default()));
 
                 // Keyboard controls
-                events::wire_global_keydown(input_queue.clone());
+                events::wire_global_keydown(input_queue.clone(), audio_ctx.clone());
 
                 // Pointer handlers (move/down/up)
                 events::wire_input_handlers(events::InputWiring {
@@ -319,6 +319,7 @@ async fn init() -> anyhow::Result<()> {
                     composition_moment: None,
                     composition_ripple_index: 0,
                     fps_ema: fps_ema.clone(),
+                    started: false,
                 }));
                 // Start RAF loop
                 frame::start_loop(frame_ctx);

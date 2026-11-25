@@ -65,6 +65,9 @@ pub struct FrameContext<'a> {
     pub composition_moment: Option<PieceMoment>,
     pub composition_ripple_index: u32,
     pub fps_ema: Rc<RefCell<f32>>,
+    /// Playback has run at least once. Until then, closing the help panel with
+    /// `H` starts it; afterwards a pause is the player's own and is left alone.
+    pub started: bool,
 }
 
 impl<'a> FrameContext<'a> {
@@ -79,6 +82,7 @@ impl<'a> FrameContext<'a> {
         // in the audio scheduler; the frame fires timed pulses and renders.
         self.update_fps(dt_sec);
         self.advance_composition(dt_sec);
+        self.started |= !*self.paused.borrow();
         self.apply_input_commands();
         self.update_pulses(dt_sec);
         self.update_swirl_and_fx(dt_sec);
@@ -401,13 +405,21 @@ impl<'a> FrameContext<'a> {
                     }
                 }
                 InputCommand::ExitFullscreen => {
+                    // Leaving fullscreen when not in it rejects with an error.
                     if let Some(doc) = web::window().and_then(|w| w.document()) {
-                        doc.exit_fullscreen();
+                        if doc.fullscreen_element().is_some() {
+                            doc.exit_fullscreen();
+                        }
                     }
                 }
                 InputCommand::ToggleHelp => {
                     if let Some(doc) = web::window().and_then(|w| w.document()) {
                         overlay::toggle(&doc);
+                        if overlay::is_hidden(&doc) && !self.started {
+                            *self.paused.borrow_mut() = false;
+                            self.started = true;
+                            log::info!("[keys] help closed, playback started");
+                        }
                     }
                 }
                 InputCommand::VoiceMute(v) => {
@@ -495,13 +507,8 @@ pub async fn init_gpu(canvas: &web::HtmlCanvasElement) -> Option<render::GpuStat
         Err(e) => {
             log::error!("WebGPU init error: {:?}", e);
 
-            // Try to show user-friendly message in DOM
-            if let Some(window) = web_sys::window() {
-                if let Some(document) = window.document() {
-                    if let Some(error_div) = document.get_element_by_id("no-webgpu") {
-                        _ = error_div.set_attribute("style", "display: block");
-                    }
-                }
+            if let Some(document) = web::window().and_then(|w| w.document()) {
+                overlay::show_no_webgpu(&document);
             }
             None
         }

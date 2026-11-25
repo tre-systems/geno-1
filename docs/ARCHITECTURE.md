@@ -61,7 +61,7 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   [`harmony_color`](../src/core/music.rs) (root + scale → scene colour),
   [`ray_sphere` / `nearest_index_by_uvx`](../src/input.rs), [`screen_to_world_ray`](../src/camera.rs),
   [`root_midi_for_key` / `mode_scale_for_digit`](../src/events/keymap.rs), and
-  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 39 host tests also include
+  [`command_for_key`](../src/events/command.rs) are pure and host-tested. The 50 host tests also include
   a golden snapshot of the engine's seeded note sequence and `naga` validation of the WGSL shaders.
 
 ### Input
@@ -70,7 +70,8 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   an `InputCommand` with no side effects, so it is host-tested. The keyboard closure
   ([`keyboard.rs`](../src/events/keyboard.rs)) is a thin shell: map the key, enqueue the command,
   `preventDefault` if needed. There is exactly one `window` `keydown` listener — the help toggle is a
-  normal command, not a separate listener.
+  normal command, not a separate listener. The closure also resumes the `AudioContext`, as the overlay
+  buttons do: browsers unlock audio only inside the gesture, and the frame loop runs after it.
 - **One input command queue.** All *discrete* intents — every keyboard action plus voice
   mute/solo/reseed, click-to-play, and ripples — are pushed as [`InputCommand`](../src/events/command.rs)
   values onto a shared `VecDeque`. The frame loop drains it in one place
@@ -113,7 +114,8 @@ code, and new code should fit one of them rather than inventing a parallel mecha
   self-rescheduling `Rc<RefCell<Option<Closure>>>` ([`start_loop`](../src/frame.rs)).
 - **Optional subsystems degrade gracefully.** `gpu: Option<GpuState>` and `analyser: Option<AnalyserNode>`
   let the app run (and the headless test pass) without WebGPU or an analyser; [`init_gpu`](../src/frame.rs)
-  returns `None` and surfaces a DOM message instead of panicking.
+  returns `None` and marks the page `no-webgpu` instead of panicking; the stylesheet then shows a
+  notice in the help panel and a note on the empty stage.
 - **Once-guard and module singletons.** A `static STARTED: AtomicBool` guards one-time init; a
   `thread_local! MASTER_UNMUTED_GAIN` in [`audio.rs`](../src/audio.rs) remembers the pre-mute gain.
 

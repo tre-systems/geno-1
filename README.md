@@ -38,7 +38,7 @@ direction.
 - WebGPU wave field: layered noise sheets with voice-reactive displacement, a pointer-driven swirl
   with inertial physics, and click ripples — with a palette that follows the current key and mode.
 - HDR post-processing: bright-pass bloom, separable blur, ACES tonemap, vignette, and film grain.
-- Host-tested core (39 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
+- Host-tested core (50 tests) plus a headless browser smoke test; `clippy -D warnings` clean.
 
 ## Stack
 
@@ -50,14 +50,15 @@ direction.
 
 ## Controls
 
-The Start overlay lists every binding; press `H` at any time to toggle it.
+The Start overlay lists every binding; press `H` at any time to toggle it. Closing it for the first
+time — with OK, ×, or `H` — starts playback.
 
 **Keyboard**
 
 - `A`–`G`: set root note
 - `1`–`7`: set diatonic mode (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian)
-- `8` / `9` / `0`: select 19 / 24 / 31-TET pentatonic
-- `P`: reset to C Major pentatonic
+- `8` / `9` / `0`: select 19 / 24 / 31-TET pentatonic (the instrument starts in 31-TET)
+- `P`: select C Major pentatonic
 - `R`: regenerate all voice sequences
 - `T`: randomise root + mode
 - `Space`: pause / resume
@@ -78,12 +79,16 @@ The Start overlay lists every binding; press `H` at any time to toggle it.
 - Drag a voice: reposition it on the floor plane; spatial audio follows
 - Move the pointer: drive the swirl distortion field
 
+Touch drives the pointer actions: tap to play a note, drag to stir the field. The keyboard controls
+have no on-screen equivalent, so on a touch-only device the help panel cannot be reopened once closed.
+
 ## Requirements
 
 - Node 20+
 - Rust (stable, 2021 edition)
 - `wasm-pack` (`curl -sSfL https://rustwasm.github.io/wasm-pack/installer/init.sh | sh`)
-- A WebGPU-capable browser (Chrome / Edge 113+). If audio does not start, click the Start overlay.
+- A WebGPU-capable browser (a current Chrome or Edge). Without WebGPU the help panel says so and the
+  instrument plays sound only. If audio does not start, close the Start overlay.
 
 ## Local Development
 

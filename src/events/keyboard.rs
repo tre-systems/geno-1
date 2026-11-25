@@ -9,12 +9,20 @@ use web_sys as web;
 /// enqueues them. All keyboard intents — including the help-panel toggle (`H`) —
 /// flow through this one handler and the shared input queue; the frame loop
 /// applies them.
-pub fn wire_global_keydown(queue: Rc<RefCell<VecDeque<InputCommand>>>) {
+///
+/// The one thing done here directly is resuming the `AudioContext`: browsers
+/// unlock audio only inside a user gesture, and the frame loop applies the
+/// command after the gesture has ended.
+pub fn wire_global_keydown(
+    queue: Rc<RefCell<VecDeque<InputCommand>>>,
+    audio_ctx: web::AudioContext,
+) {
     if let Some(window) = web::window() {
         let closure =
             wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: web::KeyboardEvent| {
                 let key = ev.key();
                 if let Some(cmd) = command_for_key(&key, ev.shift_key()) {
+                    _ = audio_ctx.resume();
                     queue.borrow_mut().push_back(cmd);
                     if key_prevents_default(&key) {
                         ev.prevent_default();

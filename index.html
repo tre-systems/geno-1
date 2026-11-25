@@ -100,7 +100,9 @@
         text-align: center;
         color: var(--text-main);
         width: min(92vw, 860px);
-        margin: clamp(8px, 4vh, 34px) 0;
+        /* Auto margins centre the panel when it fits and collapse to zero when it
+           is taller than the viewport, so it always scrolls from its title. */
+        margin: auto 0;
       }
       #start-keys {
         position: relative;
@@ -285,10 +287,45 @@
       #overlay-ok:hover {
         border-color: rgba(255, 214, 138, 0.78);
       }
-      #audio-error,
-      #no-webgpu {
+      #audio-error {
         border: 1px solid rgba(186, 134, 132, 0.4);
         box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+      }
+      /* Shown only without WebGPU: the loader and the wasm app add `no-webgpu`
+         to <html>. The notice sits in the help panel; the note takes its place
+         on the empty stage once the panel is closed. */
+      #webgpu-notice,
+      #webgpu-note {
+        display: none;
+        font:
+          500 13px/1.5 "Avenir Next",
+          "Gill Sans Nova",
+          "Trebuchet MS",
+          sans-serif;
+      }
+      #webgpu-notice {
+        margin: 10px 0 12px 0;
+        padding: 10px 12px;
+        border: 1px solid rgba(244, 197, 117, 0.42);
+        border-radius: 8px;
+        background: rgba(61, 44, 23, 0.42);
+        color: #ffe3b1;
+      }
+      #webgpu-note {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(86vw, 30rem);
+        margin: 0;
+        text-align: center;
+        color: var(--text-soft);
+        font-size: 14px;
+        pointer-events: none;
+      }
+      .no-webgpu #webgpu-notice,
+      .no-webgpu #start-overlay.hidden ~ #webgpu-note {
+        display: block;
       }
       #start-overlay.hidden {
         display: none !important;
@@ -298,6 +335,9 @@
           padding: 12px;
         }
         #start-keys {
+          /* Keep the padding inside the width so the panel never spills past a
+             narrow screen. */
+          box-sizing: border-box;
           padding: 14px;
           border-radius: 12px;
         }
@@ -309,10 +349,10 @@
           grid-template-columns: 1fr;
           gap: 4px;
         }
-      }
-      @media (min-height: 780px) {
-        #start-overlay {
-          align-items: center;
+        #overlay-ok,
+        #overlay-close {
+          min-width: 44px;
+          min-height: 44px;
         }
       }
       .kofi-link {
@@ -380,8 +420,15 @@
               <button id="overlay-close" aria-label="Close">×</button>
             </div>
           </div>
+          <p id="webgpu-notice" role="status">
+            WebGPU isn't available in this browser, so Geno-1 can't draw its
+            visuals. The sound still plays, and the keys and pointer still shape
+            it. For the full instrument, try a current version of Chrome or
+            Edge.
+          </p>
           <p class="intro">
-            Click the canvas to play a note. Mouse position shapes the sound.
+            Click or tap to play a note. Move the pointer, or drag a finger, to
+            shape the sound.
           </p>
           <p class="intro-note">
             Press <span class="kbd">H</span> anytime to toggle this help panel.
@@ -411,7 +458,7 @@
                 </li>
                 <li class="help-row">
                   <span class="help-bindings"><span class="kbd">P</span></span>
-                  <span class="help-desc">Reset to C Major Pentatonic</span>
+                  <span class="help-desc">Select C Major Pentatonic</span>
                 </li>
                 <li class="help-row">
                   <span class="help-bindings"><span class="kbd">R</span></span>
@@ -507,11 +554,11 @@
                 </li>
                 <li class="help-row">
                   <span class="help-bindings"><span class="kbd">0</span></span>
-                  <span class="help-desc">31-TET pentatonic</span>
+                  <span class="help-desc">31-TET pentatonic (default)</span>
                 </li>
                 <li class="help-row">
                   <span class="help-bindings"><span class="kbd">P</span></span>
-                  <span class="help-desc">C Major Pentatonic (default)</span>
+                  <span class="help-desc">C Major Pentatonic</span>
                 </li>
               </ul>
             </div>
@@ -561,32 +608,16 @@
       Audio initialization failed (AudioContext). If audio permissions were
       denied or you are in a headless environment, audio will not play.
     </div>
-    <div
-      id="no-webgpu"
-      style="
-        display: none;
-        color: #caa;
-        font: 14px/1.4 system-ui;
-        position: fixed;
-        left: 12px;
-        top: 12px;
-        max-width: 560px;
-        background: rgba(20, 20, 30, 0.7);
-        padding: 10px 12px;
-        border-radius: 6px;
-      "
-    >
-      This demo requires WebGPU. Your browser either does not support it or it
-      is disabled.<br />
-      Try Chrome 113+ or Edge 113+ with WebGPU enabled.
-    </div>
+    <p id="webgpu-note">
+      WebGPU isn't available in this browser, so there are no visuals. The sound
+      still plays.
+    </p>
     <script type="module">
       import { version as versionTag } from "env";
       const v = versionTag || Date.now();
       console.log("[index] dynamic import cache-bust tag:", v);
       if (!("gpu" in navigator)) {
-        const el = document.getElementById("no-webgpu");
-        if (el) el.style.display = "block";
+        document.documentElement.classList.add("no-webgpu");
       }
       import(`./pkg/app_web.js?v=${v}`).then((m) => {
         console.log(

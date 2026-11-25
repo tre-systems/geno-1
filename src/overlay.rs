@@ -45,7 +45,7 @@ pub fn hide(document: &web::Document) {
 }
 
 #[inline]
-fn is_hidden(document: &web::Document) -> bool {
+pub fn is_hidden(document: &web::Document) -> bool {
     if let Some(el) = document.get_element_by_id("start-overlay") {
         if el.class_list().contains("hidden") {
             return true;
@@ -64,6 +64,14 @@ pub fn toggle(document: &web::Document) {
         show(document);
     } else {
         hide(document);
+    }
+}
+
+/// Mark the page as running without WebGPU; the stylesheet then shows the
+/// notices that explain the missing visuals.
+pub fn show_no_webgpu(document: &web::Document) {
+    if let Some(root) = document.document_element() {
+        _ = root.class_list().add_1("no-webgpu");
     }
 }
 
